@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - llm-inference.yaml
+
+# Generate a ConfigMap whose *name* includes a hash.
+# We will copy that name onto the LLMInferenceService.
+configMapGenerator:
+  - name: facebook-opt-125m-simulated
+    literals:
+      - salt=anything   # change this to force a new hash/suffix
+
+generatorOptions:
+  disableNameSuffixHash: false   # default, but here for clarity
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: facebook-opt-125m-simulated
+      fieldPath: metadata.name
+    targets:
+      - select:
+          kind: LLMInferenceService
+          name: facebook-opt-125m-simulated  # base name in llm-inference.yaml
+        fieldPaths:
+          - metadata.name
