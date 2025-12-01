@@ -3,7 +3,7 @@ kind: LLMInferenceService
 metadata:
   annotations:
     alpha.maas.opendatahub.io/tiers: '[]'
-  name: facebook-opt-125m-simulated
+  name: facebook-opt-125m-simulated-1
   namespace: llm
 spec:
   model:
