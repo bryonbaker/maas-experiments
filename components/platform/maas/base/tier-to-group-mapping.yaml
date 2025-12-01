@@ -1,0 +1,41 @@
+# This ConfigMap maps tier names to associated user groups for MaaS.
+#
+# Note: This needs a rollout once it is aplied:
+#   kubectl rollout restart deployment/maas-api -n maas-api
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tier-to-group-mapping
+  namespace: maas-api
+  labels:
+    app: maas-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/name: maas-api
+    app.kubernetes.io/part-of: model-as-a-service
+    component: tier-mapping
+data:
+  tiers: |
+    # Free tier - default for all authenticated users
+    - name: free
+      description: Free tier for basic users
+      level: 0
+      groups:
+        - tier-free-users
+        - system:authenticated  # Default for all authenticated users
+
+    # Premium tier - for premium users
+    - name: premium
+      description: Premium tier for advanced users
+      level: 10
+      groups:
+        - tier-premium-users
+        - premium-group
+
+    # Enterprise tier - highest level
+    - name: enterprise
+      description: Enterprise tier for organizational users
+      level: 20
+      groups:
+        - tier-enterprise-users
+        - enterprise-group
+        - admin-group
