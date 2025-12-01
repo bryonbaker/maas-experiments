@@ -44,7 +44,7 @@ Prerequisites
 Quickstart — local steps
 ------------------------
 
-The repository provides a helper script at `tools/bootstrap-cluster.sh` to automate some bootstrap steps. The exact behavior of that script depends on your environment — inspect it before running.
+The repository provides a helper script at `tools/bootstrap-cluster.sh` to automate deployment of ArgoCD and configure it with loose permissions that are suitable for a demo environment.
 
 Minimal manual flow (example):
 
