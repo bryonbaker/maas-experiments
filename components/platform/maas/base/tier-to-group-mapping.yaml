@@ -37,9 +37,16 @@ data:
       groups:
         - tier-enterprise-users
 
-    # This is an example of namespacing a tier to implement an tier for a specific company.
-    - name: acme-tier
+    # This is an example of using namespacing to implement a tier for developers in a specific company.
+    - name: acme-dev-tier 
       description: Tier used for users with access to the Acme Inc series of models
-      level: 99
+      level: 50
       groups:
-      - acme-tier-users
+      - acme-dev-users
+
+    # This is an example of using namespacing to implement a tier for production users in a specific company.
+    - name: acme-prod-tier
+      description: Tier used for users with access to the Acme Inc series of models
+      level: 50
+      groups:
+      - acme-prod-users
