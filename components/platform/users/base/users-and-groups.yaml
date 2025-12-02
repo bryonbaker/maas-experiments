@@ -60,6 +60,8 @@ users: [bryonbaker, user2]
 
 --- 
 
+# Define the Cluster Role Bindings for the groups so they access the cluster to get the api key
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
