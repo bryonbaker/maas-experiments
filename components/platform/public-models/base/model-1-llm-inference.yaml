@@ -4,7 +4,7 @@ metadata:
   annotations:
     # This model is available to all users (free, premium, enterprise)
     alpha.maas.opendatahub.io/tiers: '["free","premium","enterprise"]'
-  name: facebook-opt-125m-simulated-1
+  name: shared-llm-model1
   namespace: llm
 spec:
   model:
