@@ -44,7 +44,7 @@ apiVersion: user.openshift.io/v1
 kind: Group
 metadata:
   name: tier-premium-users
-users: [user2]
+users: [noyitz, user2]
 
 ---
 
