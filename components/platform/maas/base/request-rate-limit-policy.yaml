@@ -1,6 +1,9 @@
 # Gateway-level Token Rate Limiting Policy for OpenShift
 # Automatically tracks tokens from response bodies (usage.total_tokens)
 # Uses the same user groups as the auth policy configuration
+#
+# Note: Need to resynch the policy after change
+# https://opendatahub-io.github.io/maas-billing/latest/configuration-and-management/tier-configuration/
 ---
 apiVersion: kuadrant.io/v1
 kind: RateLimitPolicy
