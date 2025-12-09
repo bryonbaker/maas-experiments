@@ -59,6 +59,9 @@ print_menu() {
     echo "2. Create Group"
     echo "3. Add User to Group"
     echo "4. Deploy Model (LLMInferenceService)"
+    echo "5. Get MaaS Authentication Token"
+    echo "6. List Models (MaaS API)"
+    echo "7. Query Model Inference Endpoint"
     echo "X. Exit"
     echo ""
     echo -e "${BLUE}========================================${NC}"
@@ -278,6 +281,167 @@ deploy_model_demo() {
     echo ""
 }
 
+get_maas_token_demo() {
+    local curl_cmd="curl -sSk \\
+  -H \"Authorization: Bearer \$(oc whoami -t)\" \\
+  -H \"Content-Type: application/json\" \\
+  -X POST \\
+  -d '{\"expiration\": \"10m\"}' \\
+  \"\${HOST}/maas-api/v1/tokens\""
+
+    print_curl_command \
+        "GET MAAS AUTHENTICATION TOKEN" \
+        "Obtains a MaaS API authentication token using OpenShift credentials" \
+        "$curl_cmd"
+    
+    echo -e "${YELLOW}Prerequisites:${NC}"
+    echo "• Must be authenticated with OpenShift: oc login <cluster>"
+    echo "• Requires jq for parsing JSON: brew install jq (or apt install jq)"
+    echo ""
+    echo -e "${YELLOW}Complete workflow:${NC}"
+    echo "# Step 1: Get cluster domain and set HOST"
+    echo "CLUSTER_DOMAIN=\$(kubectl get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')"
+    echo "HOST=\"https://maas.\${CLUSTER_DOMAIN}\""
+    echo ""
+    echo "# Step 2: Get MaaS token"
+    echo "TOKEN_RESPONSE=\$(curl -sSk \\"
+    echo "  -H \"Authorization: Bearer \$(oc whoami -t)\" \\"
+    echo "  -H \"Content-Type: application/json\" \\"
+    echo "  -X POST \\"
+    echo "  -d '{\"expiration\": \"10m\"}' \\"
+    echo "  \"\${HOST}/maas-api/v1/tokens\")"
+    echo ""
+    echo "# Step 3: Check response and extract token"
+    echo "echo \"Response: \$TOKEN_RESPONSE\"  # Debug: check what was returned"
+    echo "TOKEN=\$(echo \$TOKEN_RESPONSE | jq -r .token)"
+    echo ""
+    echo -e "${YELLOW}Troubleshooting:${NC}"
+    echo "• If you get 'Internal Server Error': MaaS may not be installed or configured"
+    echo "• If jq parse error: The API returned HTML/text instead of JSON"
+    echo "• Check if MaaS is deployed: kubectl get pods -n maas-system"
+    echo "• Verify endpoint: curl -k \${HOST}/maas-api/v1/health"
+    echo ""
+    echo -e "${YELLOW}Notes:${NC}"
+    echo "• Token expires in 10 minutes by default"
+    echo "• Use this token for subsequent MaaS API calls"
+    echo ""
+}
+
+list_models_demo() {
+    local curl_cmd="curl -X GET \\
+  -H \"Authorization: Bearer \$TOKEN\" \\
+  -H \"Accept: application/json\" \\
+  -k \\
+  \"\${HOST}/maas-api/v1/models\""
+
+    print_curl_command \
+        "LIST MODELS (MaaS API)" \
+        "Lists all available models using the MaaS API with authentication token" \
+        "$curl_cmd"
+    
+    echo -e "${YELLOW}Prerequisites (run these first):${NC}"
+    echo "1. Get MaaS authentication token (option 5)"
+    echo "2. Set environment variables:"
+    echo -e "${CYAN}   export HOST=\"<maas-host>\"${NC}"
+    echo -e "${CYAN}   export TOKEN=\"<maas-token>\"${NC}"
+    echo ""
+    echo -e "${YELLOW}Complete workflow:${NC}"
+    echo "# Step 1: Get cluster domain and set HOST"
+    echo "CLUSTER_DOMAIN=\$(kubectl get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')"
+    echo "HOST=\"https://maas.\${CLUSTER_DOMAIN}\""
+    echo ""
+    echo "# Step 2: Get MaaS token (see option 5)"
+    echo "TOKEN_RESPONSE=\$(curl -sSk \\"
+    echo "  -H \"Authorization: Bearer \$(oc whoami -t)\" \\"
+    echo "  -H \"Content-Type: application/json\" \\"
+    echo "  -X POST \\"
+    echo "  -d '{\"expiration\": \"10m\"}' \\"
+    echo "  \"\${HOST}/maas-api/v1/tokens\")"
+    echo ""
+    echo "# Step 3: Extract and export token"
+    echo "export TOKEN=\$(echo \$TOKEN_RESPONSE | jq -r .token)"
+    echo ""
+    echo "# Step 4: List models"
+    echo "curl -X GET \\"
+    echo "  -H \"Authorization: Bearer \$TOKEN\" \\"
+    echo "  -H \"Accept: application/json\" \\"
+    echo "  -k \\"
+    echo "  \"\${HOST}/maas-api/v1/models\""
+    echo ""
+    echo -e "${YELLOW}Troubleshooting:${NC}"
+    echo "• If 'Internal Server Error': MaaS may not be installed"
+    echo "• Check MaaS deployment: kubectl get pods -n maas-system"
+    echo "• Verify MaaS health: curl -k \${HOST}/maas-api/v1/health"
+    echo "• Ensure valid token: echo \$TOKEN"
+    echo ""
+    echo -e "${YELLOW}Notes:${NC}"
+    echo "• MaaS token expires in 10 minutes"
+    echo "• This lists all models available through the MaaS API"
+    echo "• Different from OpenShift LLMInferenceService resources"
+    echo ""
+}
+
+query_model_inference_demo() {
+    local curl_cmd="curl -sSk \\
+  -H \"Authorization: Bearer \$TOKEN\" \\
+  -H \"Content-Type: application/json\" \\
+  -d '{\"model\": \"<MODEL_NAME>\", \"prompt\": \"Hello\", \"max_tokens\": 50}' \\
+  \"\${MODEL_URL}/v1/completions\""
+
+    print_curl_command \
+        "QUERY MODEL INFERENCE ENDPOINT" \
+        "Sends an inference request to a deployed model using the MaaS API" \
+        "$curl_cmd"
+    
+    echo -e "${YELLOW}Prerequisites (run these first):${NC}"
+    echo "1. Get MaaS authentication token (option 5)"
+    echo "2. List models to get MODEL_URL (option 6)"
+    echo "3. Set environment variables:"
+    echo "   export TOKEN=\"<maas-token>\""
+    echo "   export MODEL_URL=\"<model-inference-url>\""
+    echo ""
+    echo -e "${YELLOW}Complete workflow:${NC}"
+    echo "# Step 1: Get cluster domain and MaaS token (options 5)"
+    echo "CLUSTER_DOMAIN=\$(kubectl get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')"
+    echo "HOST=\"https://maas.\${CLUSTER_DOMAIN}\""
+    echo "TOKEN_RESPONSE=\$(curl -sSk \\"
+    echo "  -H \"Authorization: Bearer \$(oc whoami -t)\" \\"
+    echo "  -H \"Content-Type: application/json\" \\"
+    echo "  -X POST \\"
+    echo "  -d '{\"expiration\": \"10m\"}' \\"
+    echo "  \"\${HOST}/maas-api/v1/tokens\")"
+    echo "export TOKEN=\$(echo \$TOKEN_RESPONSE | jq -r .token)"
+    echo ""
+    echo "# Step 2: Get available models and their URLs (option 6)"
+    echo "curl -X GET \\"
+    echo "  -H \"Authorization: Bearer \$TOKEN\" \\"
+    echo "  -H \"Accept: application/json\" \\"
+    echo "  -k \\"
+    echo "  \"\${HOST}/maas-api/v1/models\""
+    echo ""
+    echo "# Step 3: Set MODEL_URL from the models response"
+    echo "export MODEL_URL=\"<url-from-models-response>\""
+    echo ""
+    echo "# Step 4: Query the model inference endpoint"
+    echo "curl -sSk \\"
+    echo "  -H \"Authorization: Bearer \$TOKEN\" \\"
+    echo "  -H \"Content-Type: application/json\" \\"
+    echo "  -d '{\"model\": \"<MODEL_NAME>\", \"prompt\": \"Hello\", \"max_tokens\": 50}' \\"
+    echo "  \"\${MODEL_URL}/v1/completions\""
+    echo ""
+    echo -e "${YELLOW}Request Parameters:${NC}"
+    echo "• model: Name of the model to query"
+    echo "• prompt: Text prompt to send to the model"
+    echo "• max_tokens: Maximum number of tokens in the response"
+    echo ""
+    echo -e "${YELLOW}Troubleshooting:${NC}"
+    echo "• If 401 Unauthorized: Check your MaaS token is valid"
+    echo "• If 404 Not Found: Verify the MODEL_URL is correct"
+    echo "• If 500 Internal Error: Model may not be ready or available"
+    echo "• Expected response: 200 OK with JSON completion data"
+    echo ""
+}
+
 list_users_demo() {
     local curl_cmd="curl -X GET \\
   -H \"Authorization: Bearer \$(oc whoami -t)\" \\
@@ -412,6 +576,15 @@ main() {
                 ;;
             4)
                 deploy_model_demo
+                ;;
+            5)
+                get_maas_token_demo
+                ;;
+            6)
+                list_models_demo
+                ;;
+            7)
+                query_model_inference_demo
                 ;;
             [Xx])
                 echo -e "${GREEN}Thanks for using the OpenShift API Curl Cheatsheet!${NC}"
