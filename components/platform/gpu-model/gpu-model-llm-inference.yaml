@@ -1,0 +1,36 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  annotations:
+    alpha.maas.opendatahub.io/tiers: '["acme-dev-users-tier", "acme-prod-users-tier"]'
+  name: granite-code-deployment
+  namespace: 0-gpu-model
+  finalizers:
+    - serving.kserve.io/llmisvc-finalizer
+spec:
+  model:
+    name: granite-code-deployment
+    uri: 'oci://registry.redhat.io/rhelai1/modelcar-granite-8b-code-instruct:1.4.0'
+  replicas: 1
+  router:
+    gateway:
+      refs:
+      - name: maas-default-gateway
+        namespace: openshift-ingress
+    route: {}
+    scheduler: {}
+  template:
+    containers:
+      - env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: '--max-model-len=4000'
+        name: main
+        resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+            nvidia.com/gpu: '1'
+          requests:
+            cpu: '2'
+            memory: 4Gi
+            nvidia.com/gpu: '1'
