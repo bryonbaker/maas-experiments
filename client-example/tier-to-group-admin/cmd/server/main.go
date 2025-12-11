@@ -59,10 +59,32 @@ func main() {
 	// Command line flags
 	filePath := flag.String("file", "tier-config.yaml", "Path to the tier configuration file")
 	port := flag.String("port", "8080", "Port to run the server on")
+	mode := flag.String("mode", "", "Storage mode: 'local' for file storage, 'hosted' for Kubernetes ConfigMap storage (required)")
 	flag.Parse()
 
-	// Initialize storage
-	tierStorage := storage.NewFileTierStorage(*filePath)
+	// Validate that mode is provided
+	if *mode == "" {
+		log.Fatalf("Error: --mode flag is required. Use --mode=local for file storage or --mode=hosted for Kubernetes storage.")
+		os.Exit(1)
+	}
+
+	var tierStorage storage.TierStorage
+
+	// Initialize storage based on mode
+	switch *mode {
+	case "local":
+		tierStorage = storage.NewFileTierStorage(*filePath)
+		log.Printf("Using file storage mode")
+		log.Printf("Tier configuration file: %s", *filePath)
+	case "hosted":
+		// Kubernetes storage will be initialized here
+		// For now, this is a placeholder - will be implemented in deployment phase
+		log.Fatalf("Hosted mode (Kubernetes) not yet implemented. Use --mode=local for file storage.")
+		os.Exit(1)
+	default:
+		log.Fatalf("Invalid mode: %s. Must be 'local' or 'hosted'", *mode)
+		os.Exit(1)
+	}
 
 	// Initialize service
 	tierService := service.NewTierService(tierStorage)
@@ -73,7 +95,7 @@ func main() {
 	// Start server
 	addr := fmt.Sprintf(":%s", *port)
 	log.Printf("Starting server on %s", addr)
-	log.Printf("Tier configuration file: %s", *filePath)
+	log.Printf("Storage mode: %s", *mode)
 
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
