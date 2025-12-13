@@ -13,14 +13,25 @@ This document provides example curl commands for testing the Tier-to-Group Admin
    ./tier-admin
    ```
 
-2. The server will run on `http://localhost:8080` by default.
+2. Set the base URL for your environment:
+   ```bash
+   # For local development
+   export BASE_URL="http://localhost:8080"
+   
+   # For OpenShift deployment (get route URL first)
+   # ROUTE_URL=$(oc get route tier-to-group-admin -n maas-dev -o jsonpath='{.spec.host}')
+   # export BASE_URL="https://${ROUTE_URL}"
+   
+   # Or set it directly
+   # export BASE_URL="https://tier-to-group-admin-maas-dev.apps.sno.bakerapps.net"
+   ```
 
 ## Example Commands
 
 ### 1. Create a Free Tier
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers \
+curl -X POST ${BASE_URL}/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "free",
@@ -43,7 +54,7 @@ Expected response (201 Created):
 ### 2. Create a Premium Tier
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers \
+curl -X POST ${BASE_URL}/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "premium",
@@ -56,7 +67,7 @@ curl -X POST http://localhost:8080/api/v1/tiers \
 ### 3. Create an Enterprise Tier
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers \
+curl -X POST ${BASE_URL}/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "enterprise",
@@ -69,7 +80,7 @@ curl -X POST http://localhost:8080/api/v1/tiers \
 ### 4. List All Tiers
 
 ```bash
-curl http://localhost:8080/api/v1/tiers
+curl ${BASE_URL}/api/v1/tiers
 ```
 
 Expected response (200 OK):
@@ -99,7 +110,7 @@ Expected response (200 OK):
 ### 5. Get a Specific Tier
 
 ```bash
-curl http://localhost:8080/api/v1/tiers/free
+curl ${BASE_URL}/api/v1/tiers/free
 ```
 
 Expected response (200 OK):
@@ -115,7 +126,7 @@ Expected response (200 OK):
 ### 6. Update a Tier (Description and Level)
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/tiers/free \
+curl -X PUT ${BASE_URL}/api/v1/tiers/free \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Updated free tier description",
@@ -128,7 +139,7 @@ Note: The `groups` field is optional. If not provided, it remains unchanged.
 ### 7. Update a Tier (Add Groups)
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/tiers/free \
+curl -X PUT ${BASE_URL}/api/v1/tiers/free \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Free tier for basic users",
@@ -140,7 +151,7 @@ curl -X PUT http://localhost:8080/api/v1/tiers/free \
 ### 8. Update a Tier (Remove Groups)
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/tiers/free \
+curl -X PUT ${BASE_URL}/api/v1/tiers/free \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Free tier for basic users",
@@ -152,7 +163,7 @@ curl -X PUT http://localhost:8080/api/v1/tiers/free \
 ### 9. Delete a Tier
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/tiers/free
+curl -X DELETE ${BASE_URL}/api/v1/tiers/free
 ```
 
 Expected response: 204 No Content (empty body)
@@ -160,7 +171,7 @@ Expected response: 204 No Content (empty body)
 ### 10. Add a Group to a Tier
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers/free/groups \
+curl -X POST ${BASE_URL}/api/v1/tiers/free/groups \
   -H "Content-Type: application/json" \
   -d '{"group": "trial-users"}'
 ```
@@ -178,7 +189,7 @@ Expected response (200 OK):
 ### 11. Remove a Group from a Tier
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/tiers/free/groups/trial-users
+curl -X DELETE ${BASE_URL}/api/v1/tiers/free/groups/trial-users
 ```
 
 Expected response (200 OK):
@@ -194,7 +205,7 @@ Expected response (200 OK):
 ### 12. Health Check
 
 ```bash
-curl http://localhost:8080/health
+curl ${BASE_URL}/health
 ```
 
 Expected response (200 OK):
@@ -209,7 +220,7 @@ Expected response (200 OK):
 ### Attempt to Create Duplicate Tier
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers \
+curl -X POST ${BASE_URL}/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "free",
@@ -229,7 +240,7 @@ Expected response (409 Conflict):
 ### Attempt to Get Non-Existent Tier
 
 ```bash
-curl http://localhost:8080/api/v1/tiers/nonexistent
+curl ${BASE_URL}/api/v1/tiers/nonexistent
 ```
 
 Expected response (404 Not Found):
@@ -242,7 +253,7 @@ Expected response (404 Not Found):
 ### Attempt to Update Tier Name (Immutable)
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/tiers/free \
+curl -X PUT ${BASE_URL}/api/v1/tiers/free \
   -H "Content-Type: application/json" \
   -d '{
     "name": "new-name",
@@ -261,7 +272,7 @@ Expected response (400 Bad Request):
 ### Create Tier with Missing Required Fields
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers \
+curl -X POST ${BASE_URL}/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "incomplete",
@@ -279,7 +290,7 @@ Expected response (400 Bad Request):
 ### Attempt to Add Duplicate Group
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers/free/groups \
+curl -X POST ${BASE_URL}/api/v1/tiers/free/groups \
   -H "Content-Type: application/json" \
   -d '{"group": "system:authenticated"}'
 ```
@@ -294,7 +305,7 @@ Expected response (409 Conflict):
 ### Attempt to Remove Non-Existent Group
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/tiers/free/groups/nonexistent-group
+curl -X DELETE ${BASE_URL}/api/v1/tiers/free/groups/nonexistent-group
 ```
 
 Expected response (404 Not Found):
@@ -307,7 +318,7 @@ Expected response (404 Not Found):
 ## Using with Postman
 
 1. Create a new collection called "Tier Admin API"
-2. Set base URL: `http://localhost:8080`
+2. Set base URL: `${BASE_URL}` (or your specific URL like `http://localhost:8080`)
 3. Create requests for each endpoint:
    - POST `/api/v1/tiers`
    - GET `/api/v1/tiers`
