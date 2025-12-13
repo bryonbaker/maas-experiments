@@ -1,6 +1,6 @@
-# Tier-to-Group Admin Tool
+# Tier-to-Group Admin API
 
-A REST API service for managing tier-to-group mappings in the Open Data Hub Model as a Service (MaaS) project. This tool provides CRUD operations for managing tiers that map Kubernetes groups to user-defined subscription tiers.
+A REST API service for managing tier-to-group mappings in the Open Data Hub Model as a Service (MaaS) project. This service provides CRUD operations for managing tiers that map Kubernetes groups to user-defined subscription tiers.
 
 ## Features
 
@@ -8,51 +8,68 @@ A REST API service for managing tier-to-group mappings in the Open Data Hub Mode
 - **List Tiers**: Retrieve all tiers or a specific tier by name
 - **Update Tiers**: Modify tier description, level, and groups (name is immutable)
 - **Delete Tiers**: Remove tiers from the configuration
-- **File-based Storage**: Initial implementation uses YAML file storage
-- **Extensible Design**: Storage backend can be swapped to Kubernetes ConfigMap
+- **Kubernetes ConfigMap Storage**: Stores tier configuration in Kubernetes ConfigMaps
+- **OpenShift/Kubernetes Native**: Designed to run on OpenShift/Kubernetes clusters
 
 ## Architecture
 
-The tool is built with a clean architecture:
+The service is built with a clean architecture:
 
 - **Models**: Data structures for Tier and TierConfig
-- **Storage Interface**: Abstract interface for persistence (file or Kubernetes)
+- **Storage**: Kubernetes ConfigMap-based persistence
 - **Service Layer**: Business logic for tier management
 - **API Layer**: REST API handlers using Gin framework
 
 ## Installation
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   go mod download
-   ```
+### Prerequisites
 
-## Usage
+- OpenShift/Kubernetes cluster access
+- `oc` or `kubectl` CLI tool
+- Container registry access (e.g., quay.io)
+- Podman or Docker for building images
 
-### Start the Server
+### Building the Container Image
 
 ```bash
-go run cmd/server/main.go
+make build
 ```
 
-Or with custom options:
+This builds the container image using podman.
+
+### Pushing to Registry
+
 ```bash
-go run cmd/server/main.go -file=my-config.yaml -port=9090
+make push
 ```
 
-Default options:
-- File: `tier-config.yaml`
-- Port: `8080`
+This tags and pushes the image to `quay.io/bryonbaker/tier-to-group-admin:latest`.
 
-### API Endpoints
+### Deployment
+
+See the [yaml/README.md](yaml/README.md) for detailed deployment instructions.
+
+```bash
+oc apply -k yaml/
+```
+
+## API Endpoints
 
 All endpoints are under `/api/v1/tiers`
 
-#### Create a Tier
+### Get the API URL
+
+After deployment, get the route URL:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers \
+ROUTE_URL=$(oc get route tier-to-group-admin -n maas-dev -o jsonpath='{.spec.host}')
+echo "API URL: https://$ROUTE_URL"
+```
+
+### Create a Tier
+
+```bash
+curl -X POST https://$ROUTE_URL/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "free",
@@ -62,22 +79,22 @@ curl -X POST http://localhost:8080/api/v1/tiers \
   }'
 ```
 
-#### List All Tiers
+### List All Tiers
 
 ```bash
-curl http://localhost:8080/api/v1/tiers
+curl https://$ROUTE_URL/api/v1/tiers
 ```
 
-#### Get a Specific Tier
+### Get a Specific Tier
 
 ```bash
-curl http://localhost:8080/api/v1/tiers/free
+curl https://$ROUTE_URL/api/v1/tiers/free
 ```
 
-#### Update a Tier
+### Update a Tier
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/tiers/free \
+curl -X PUT https://$ROUTE_URL/api/v1/tiers/free \
   -H "Content-Type: application/json" \
   -d '{
     "description": "Updated free tier description",
@@ -88,38 +105,38 @@ curl -X PUT http://localhost:8080/api/v1/tiers/free \
 
 Note: The `name` field cannot be changed. Only `description`, `level`, and `groups` can be updated.
 
-#### Delete a Tier
+### Delete a Tier
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/tiers/free
+curl -X DELETE https://$ROUTE_URL/api/v1/tiers/free
 ```
 
-#### Add a Group to a Tier
+### Add a Group to a Tier
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tiers/free/groups \
+curl -X POST https://$ROUTE_URL/api/v1/tiers/free/groups \
   -H "Content-Type: application/json" \
   -d '{"group": "new-group"}'
 ```
 
-#### Remove a Group from a Tier
+### Remove a Group from a Tier
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/tiers/free/groups/system:authenticated
+curl -X DELETE https://$ROUTE_URL/api/v1/tiers/free/groups/system:authenticated
 ```
 
 ### Health Check
 
 ```bash
-curl http://localhost:8080/health
+curl https://$ROUTE_URL/health
 ```
 
 ### Swagger Documentation
 
-The API includes interactive Swagger documentation. Once the server is running, access it at:
+The API includes interactive Swagger documentation. Access it at:
 
 ```
-http://localhost:8080/swagger/index.html
+https://$ROUTE_URL/swagger/index.html
 ```
 
 The Swagger UI provides:
@@ -134,9 +151,19 @@ To regenerate Swagger documentation after making changes to API annotations:
 swag init -g cmd/server/main.go -o docs
 ```
 
-## Configuration File Format
+## Configuration
 
-The tool reads and writes YAML files in the ConfigMap format:
+The service stores tier configuration in a Kubernetes ConfigMap. The ConfigMap is automatically created in the `maas-api` namespace (configurable via `NAMESPACE` environment variable) with the name `tier-to-group-mapping` (configurable via `CONFIGMAP_NAME` environment variable).
+
+### Environment Variables
+
+- `NAMESPACE`: Kubernetes namespace for the ConfigMap (default: `maas-api`)
+- `CONFIGMAP_NAME`: Name of the ConfigMap (default: `tier-to-group-mapping`)
+- `PORT`: Server port (default: `8080`)
+
+### ConfigMap Format
+
+The ConfigMap stores tiers in the following format:
 
 ```yaml
 apiVersion: v1
@@ -187,12 +214,10 @@ HTTP Status Codes:
 
 ## Future Enhancements
 
-- Kubernetes ConfigMap integration
 - Authentication and authorization
 - Rate limiting
-- Logging and metrics
-- Configuration file support
-- Docker containerization
+- Enhanced logging and metrics
+- Multi-namespace support
 
 ## Development
 
@@ -211,21 +236,25 @@ tier-to-group-admin/
 │   │   ├── tier.go          # Data models
 │   │   └── errors.go        # Error definitions
 │   ├── storage/
-│   │   ├── interface.go     # Storage interface
-│   │   ├── file.go          # File-based storage
-│   │   └── k8s.go           # Kubernetes storage (future)
+│   │   ├── k8s.go           # Kubernetes ConfigMap storage
+│   │   └── k8s_client.go    # Kubernetes client initialization
 │   └── service/
 │       └── tier.go          # Business logic
+├── yaml/                    # Kubernetes/OpenShift deployment files
+├── tests/
+│   └── test-api.sh          # API integration test script
 ├── go.mod
 ├── go.sum
 ├── README.md
-└── PLAN.md
+└── Makefile
 ```
 
 ### Building
 
+Build the container image:
+
 ```bash
-go build -o tier-admin cmd/server/main.go
+make build
 ```
 
 ### Running Tests
@@ -233,22 +262,22 @@ go build -o tier-admin cmd/server/main.go
 #### Unit Tests
 
 ```bash
-go test ./...
+make test
+```
+
+Or with coverage:
+
+```bash
+make test-coverage
 ```
 
 #### API Integration Tests
 
-A comprehensive test script is provided to test all API endpoints:
+A comprehensive test script is provided to test all API endpoints against a deployed cluster:
 
 ```bash
-# Make sure the server is running first
-go run cmd/server/main.go
-
-# In another terminal, run the test script
-./test-api.sh
-
-# Or with a custom base URL
-BASE_URL=http://localhost:9090 ./test-api.sh
+# Test against deployed cluster
+./tests/test-api.sh https://tier-to-group-admin-maas-dev.apps.sno.bakerapps.net
 ```
 
 The test script will:

@@ -1,0 +1,29 @@
+# RBAC for maas-api namespace - allows app to access ConfigMaps in maas-api
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tier-admin-role
+  namespace: maas-api
+  labels:
+    app: tier-to-group-admin
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tier-admin-rolebinding
+  namespace: maas-api
+  labels:
+    app: tier-to-group-admin
+subjects:
+- kind: ServiceAccount
+  name: tier-to-group-admin
+  namespace: maas-dev
+roleRef:
+  kind: Role
+  name: tier-admin-role
+  apiGroup: rbac.authorization.k8s.io
+

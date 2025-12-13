@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"tier-to-group-admin/internal/models"
 	"tier-to-group-admin/internal/service"
@@ -43,7 +44,12 @@ func (h *TierHandler) CreateTier(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
-	
+
+	// Initialize groups to empty list if not provided
+	if tier.Groups == nil {
+		tier.Groups = []string{}
+	}
+
 	// Validate required fields for creation
 	if tier.Name == "" {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: models.ErrTierNameRequired.Error()})
@@ -78,12 +84,15 @@ func (h *TierHandler) CreateTier(c *gin.Context) {
 // @Failure      500  {object}  ErrorResponse  "Internal server error"
 // @Router       /tiers [get]
 func (h *TierHandler) GetTiers(c *gin.Context) {
+	log.Printf("GET /api/v1/tiers - Request received from %s", c.ClientIP())
 	tiers, err := h.service.GetTiers()
 	if err != nil {
+		log.Printf("GET /api/v1/tiers - Error: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
 	}
 
+	log.Printf("GET /api/v1/tiers - Returning %d tiers", len(tiers))
 	c.JSON(http.StatusOK, tiers)
 }
 
@@ -128,20 +137,20 @@ func (h *TierHandler) GetTier(c *gin.Context) {
 func (h *TierHandler) UpdateTier(c *gin.Context) {
 	name := c.Param("name")
 	var updates models.Tier
-	
+
 	// Bind JSON - name field is optional for updates
 	if err := c.ShouldBindJSON(&updates); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
-	
+
 	// Check if user is trying to change the name (which is immutable)
 	// We check the original value from JSON before overwriting it
 	if updates.Name != "" && updates.Name != name {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: models.ErrTierNameImmutable.Error()})
 		return
 	}
-	
+
 	// Ensure name is set from URL path (not from JSON body) for validation
 	updates.Name = name
 
@@ -282,4 +291,3 @@ func (h *TierHandler) RemoveGroup(c *gin.Context) {
 
 	c.JSON(http.StatusOK, tier)
 }
-

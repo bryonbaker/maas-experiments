@@ -1,0 +1,18 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: tier-to-group-admin
+  namespace: maas-dev
+  labels:
+    app: tier-to-group-admin
+spec:
+  to:
+    kind: Service
+    name: tier-to-group-admin
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+

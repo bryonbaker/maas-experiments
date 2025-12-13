@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tier-to-group-admin
+  namespace: maas-dev
+  labels:
+    app: tier-to-group-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tier-to-group-admin
+  template:
+    metadata:
+      labels:
+        app: tier-to-group-admin
+    spec:
+      # Service account token is automatically mounted and managed by Kubernetes
+      # The application uses client-go's rest.InClusterConfig() which automatically
+      # reads and refreshes the service account token from the mounted secret volume
+      serviceAccountName: tier-to-group-admin
+      containers:
+      - name: tier-admin
+        image: quay.io/bryonbaker/tier-to-group-admin:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: NAMESPACE
+          value: "maas-api"
+        - name: CONFIGMAP_NAME
+          value: "tier-to-group-mapping"
+        - name: PORT
+          value: "8080"
+        # ROUTE_HOST is optional - if not set, Swagger will use the request's Host header
+        # To set explicitly, uncomment and set to your route hostname:
+        # - name: ROUTE_HOST
+        #   value: "tier-to-group-admin-maas-dev.apps.sno.bakerapps.net"
+        args:
+        - "--port=8080"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+

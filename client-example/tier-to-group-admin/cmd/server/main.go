@@ -33,9 +33,16 @@ func init() {
 	docs.SwaggerInfo.Title = "Tier-to-Group Admin API"
 	docs.SwaggerInfo.Version = "1.0"
 	docs.SwaggerInfo.Description = "REST API service for managing tier-to-group mappings in the Open Data Hub Model as a Service (MaaS) project."
-	docs.SwaggerInfo.Host = "localhost:8080"
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
+
+	// Set Swagger host from environment variable or default to localhost
+	// In OpenShift, set ROUTE_HOST environment variable to the route hostname
+	swaggerHost := os.Getenv("ROUTE_HOST")
+	if swaggerHost == "" {
+		swaggerHost = "localhost:8080"
+	}
+	docs.SwaggerInfo.Host = swaggerHost
 }
 
 // @title           Tier-to-Group Admin API
@@ -57,34 +64,32 @@ func init() {
 
 func main() {
 	// Command line flags
-	filePath := flag.String("file", "tier-config.yaml", "Path to the tier configuration file")
 	port := flag.String("port", "8080", "Port to run the server on")
-	mode := flag.String("mode", "", "Storage mode: 'local' for file storage, 'hosted' for Kubernetes ConfigMap storage (required)")
 	flag.Parse()
 
-	// Validate that mode is provided
-	if *mode == "" {
-		log.Fatalf("Error: --mode flag is required. Use --mode=local for file storage or --mode=hosted for Kubernetes storage.")
+	// Get environment variables for Kubernetes configuration
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		namespace = "maas-api"
+	}
+
+	configMapName := os.Getenv("CONFIGMAP_NAME")
+	if configMapName == "" {
+		configMapName = "tier-to-group-mapping"
+	}
+
+	// Initialize Kubernetes client
+	k8sClient, err := storage.NewKubernetesClient()
+	if err != nil {
+		log.Fatalf("Failed to create Kubernetes client: %v", err)
 		os.Exit(1)
 	}
 
-	var tierStorage storage.TierStorage
-
-	// Initialize storage based on mode
-	switch *mode {
-	case "local":
-		tierStorage = storage.NewFileTierStorage(*filePath)
-		log.Printf("Using file storage mode")
-		log.Printf("Tier configuration file: %s", *filePath)
-	case "hosted":
-		// Kubernetes storage will be initialized here
-		// For now, this is a placeholder - will be implemented in deployment phase
-		log.Fatalf("Hosted mode (Kubernetes) not yet implemented. Use --mode=local for file storage.")
-		os.Exit(1)
-	default:
-		log.Fatalf("Invalid mode: %s. Must be 'local' or 'hosted'", *mode)
-		os.Exit(1)
-	}
+	// Create Kubernetes storage
+	tierStorage := storage.NewK8sTierStorage(k8sClient, namespace, configMapName)
+	log.Printf("Using Kubernetes ConfigMap storage")
+	log.Printf("Namespace: %s", namespace)
+	log.Printf("ConfigMap: %s", configMapName)
 
 	// Initialize service
 	tierService := service.NewTierService(tierStorage)
@@ -95,7 +100,6 @@ func main() {
 	// Start server
 	addr := fmt.Sprintf(":%s", *port)
 	log.Printf("Starting server on %s", addr)
-	log.Printf("Storage mode: %s", *mode)
 
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

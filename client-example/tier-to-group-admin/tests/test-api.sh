@@ -2,8 +2,24 @@
 
 # Test script for Tier-to-Group Admin API
 # Tests all CRUD operations and displays results
+#
+# Usage:
+#   ./test-api.sh [BASE_URL]
+#   ./test-api.sh https://tier-to-group-admin-maas-dev.apps.sno.bakerapps.net
+#   BASE_URL=https://example.com ./test-api.sh
 
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+# Get base URL from command line argument or environment variable, default to localhost
+if [ -n "$1" ]; then
+    BASE_URL="$1"
+elif [ -n "$BASE_URL" ]; then
+    BASE_URL="$BASE_URL"
+else
+    BASE_URL="http://localhost:8080"
+fi
+
+# Remove trailing slash if present
+BASE_URL="${BASE_URL%/}"
+
 API_BASE="${BASE_URL}/api/v1"
 
 # Colors for output
@@ -38,12 +54,12 @@ run_test() {
     echo -n "Testing: $test_name ... "
     
     if [ -n "$data" ]; then
-        response=$(curl -s -w "\n%{http_code}" -X "$method" \
+        response=$(curl -s -k -w "\n%{http_code}" -X "$method" \
             -H "Content-Type: application/json" \
             -d "$data" \
             "${API_BASE}${endpoint}")
     else
-        response=$(curl -s -w "\n%{http_code}" -X "$method" \
+        response=$(curl -s -k -w "\n%{http_code}" -X "$method" \
             "${API_BASE}${endpoint}")
     fi
     
@@ -67,13 +83,23 @@ run_test() {
 }
 
 # Check if server is running
-echo -e "${YELLOW}Checking if server is running at $BASE_URL...${NC}"
-if ! curl -s -f "${BASE_URL}/health" > /dev/null; then
-    echo -e "${RED}Error: Server is not running at $BASE_URL${NC}"
-    echo "Please start the server first: go run cmd/server/main.go"
+echo -e "${YELLOW}Testing API at: ${BASE_URL}${NC}"
+echo -e "${YELLOW}API Base URL: ${API_BASE}${NC}\n"
+
+if ! curl -s -f -k "${BASE_URL}/health" > /dev/null 2>&1; then
+    echo -e "${RED}Error: Server is not accessible at $BASE_URL${NC}"
+    echo "Please check:"
+    echo "  - The server is running"
+    echo "  - The URL is correct"
+    echo "  - Network connectivity"
+    echo ""
+    echo "Usage:"
+    echo "  ./test-api.sh [BASE_URL]"
+    echo "  ./test-api.sh https://tier-to-group-admin-maas-dev.apps.sno.bakerapps.net"
+    echo "  BASE_URL=https://example.com ./test-api.sh"
     exit 1
 fi
-echo -e "${GREEN}Server is running!${NC}\n"
+echo -e "${GREEN}Server is accessible!${NC}\n"
 
 # ============================================
 # TEST 1: CREATE TIERS
@@ -244,6 +270,24 @@ run_test "Verify all tiers are deleted" 200 GET "/tiers" ""
 # ============================================
 print_header "TEST 10: Edge Cases"
 
+# Create tier without groups field (should default to empty list)
+run_test "Create tier without groups field" 201 POST "/tiers" \
+    '{"name":"acme-no-groups","description":"Test without groups field","level":1}'
+
+# Verify the tier was created with empty groups
+run_test "Verify tier has empty groups" 200 GET "/tiers/acme-no-groups" ""
+# Check response contains empty groups array
+RESPONSE=$(curl -s -k "${BASE_URL}/api/v1/tiers/acme-no-groups")
+if echo "$RESPONSE" | grep -q '"groups":\[\]'; then
+    echo -e "${GREEN}✓ Tier has empty groups array${NC}"
+    PASSED=$((PASSED + 1))
+else
+    echo -e "${RED}✗ Tier does not have empty groups array${NC}"
+    echo "Response: $RESPONSE"
+    FAILED=$((FAILED + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
 # Create tier with empty groups array
 run_test "Create tier with empty groups" 201 POST "/tiers" \
     '{"name":"acme-inc-1","description":"Test with empty groups","level":1,"groups":[]}'
@@ -260,7 +304,8 @@ run_test "Add group to tier with empty groups" 200 POST "/tiers/acme-inc-1/group
 run_test "Remove group from tier" 200 DELETE "/tiers/acme-inc-1/groups/test-group" ""
 
 # Clean up
-run_test "Delete test tier" 204 DELETE "/tiers/acme-inc-1" ""
+run_test "Delete test tier (acme-inc-1)" 204 DELETE "/tiers/acme-inc-1" ""
+run_test "Delete test tier (acme-no-groups)" 204 DELETE "/tiers/acme-no-groups" ""
 
 # ============================================
 # SUMMARY

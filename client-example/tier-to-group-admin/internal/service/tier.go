@@ -8,11 +8,11 @@ import (
 
 // TierService provides business logic for tier management
 type TierService struct {
-	storage storage.TierStorage
+	storage *storage.K8sTierStorage
 }
 
 // NewTierService creates a new TierService instance
-func NewTierService(storage storage.TierStorage) *TierService {
+func NewTierService(storage *storage.K8sTierStorage) *TierService {
 	return &TierService{
 		storage: storage,
 	}

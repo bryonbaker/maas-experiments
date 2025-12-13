@@ -1,29 +1,29 @@
-// +build !k8s
-
 package storage
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"log"
+	"strings"
 	"tier-to-group-admin/internal/models"
 
 	"gopkg.in/yaml.v3"
-	// "k8s.io/client-go/kubernetes" // Uncomment when implementing Kubernetes storage
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // K8sTierStorage implements TierStorage using Kubernetes ConfigMap
-// This is a placeholder for future implementation
-// When implementing, uncomment the kubernetes import and update the Client field type
 type K8sTierStorage struct {
-	// Client    kubernetes.Interface // Uncomment when implementing
-	Client    interface{} // Placeholder - replace with kubernetes.Interface
+	Client    kubernetes.Interface
 	Namespace string
 	ConfigMap string
 }
 
 // NewK8sTierStorage creates a new K8sTierStorage instance
-// This is a placeholder - implementation will be added later
-// When implementing, change client parameter type to kubernetes.Interface
-func NewK8sTierStorage(client interface{}, namespace, configMap string) *K8sTierStorage {
+func NewK8sTierStorage(client kubernetes.Interface, namespace, configMap string) *K8sTierStorage {
 	return &K8sTierStorage{
 		Client:    client,
 		Namespace: namespace,
@@ -32,48 +32,108 @@ func NewK8sTierStorage(client interface{}, namespace, configMap string) *K8sTier
 }
 
 // Load retrieves the tier configuration from Kubernetes ConfigMap
-// TODO: Implement using k8s.io/client-go
 func (k *K8sTierStorage) Load() (*models.TierConfig, error) {
-	// Implementation will:
-	// 1. Get ConfigMap from Kubernetes API
-	// 2. Extract the "tiers" field from data
-	// 3. Parse YAML string
-	// 4. Return TierConfig
+	ctx := context.Background()
+	log.Printf("Loading ConfigMap: namespace=%s, name=%s", k.Namespace, k.ConfigMap)
 
-	return nil, fmt.Errorf("Kubernetes storage not yet implemented")
-}
+	// Get ConfigMap from Kubernetes API
+	cm, err := k.Client.CoreV1().ConfigMaps(k.Namespace).Get(ctx, k.ConfigMap, metav1.GetOptions{})
+	if err != nil {
+		// If ConfigMap doesn't exist, return empty config
+		if errors.IsNotFound(err) {
+			log.Printf("ConfigMap %s/%s not found, returning empty config", k.Namespace, k.ConfigMap)
+			return &models.TierConfig{Tiers: []models.Tier{}}, nil
+		}
+		log.Printf("Error getting ConfigMap %s/%s: %v", k.Namespace, k.ConfigMap, err)
+		return nil, fmt.Errorf("failed to get ConfigMap %s/%s: %w", k.Namespace, k.ConfigMap, err)
+	}
 
-// Save persists the tier configuration to Kubernetes ConfigMap
-// TODO: Implement using k8s.io/client-go
-func (k *K8sTierStorage) Save(config *models.TierConfig) error {
-	// Implementation will:
-	// 1. Marshal TierConfig to YAML string
-	// 2. Update ConfigMap data field
-	// 3. Apply changes via Kubernetes API
+	log.Printf("ConfigMap retrieved successfully")
 
-	return fmt.Errorf("Kubernetes storage not yet implemented")
-}
-
-// Helper function to parse tiers YAML string (used by both Load and Save)
-func parseTiersYAML(tiersYAML string) (*models.TierConfig, error) {
-	var tierConfig models.TierConfig
+	// Extract the "tiers" field from data
+	tiersYAML, exists := cm.Data["tiers"]
+	if !exists {
+		log.Printf("ConfigMap %s/%s does not have 'tiers' key. Available keys: %v", k.Namespace, k.ConfigMap, getMapKeys(cm.Data))
+		return &models.TierConfig{Tiers: []models.Tier{}}, nil
+	}
 	if tiersYAML == "" || tiersYAML == "[]" {
+		log.Printf("ConfigMap %s/%s has empty 'tiers' field", k.Namespace, k.ConfigMap)
 		return &models.TierConfig{Tiers: []models.Tier{}}, nil
 	}
 
-	if err := yaml.Unmarshal([]byte(tiersYAML), &tierConfig); err != nil {
+	log.Printf("Parsing tiers YAML (length: %d chars)", len(tiersYAML))
+
+	// Parse the tiers YAML string
+	var tiers []models.Tier
+	if err := yaml.Unmarshal([]byte(tiersYAML), &tiers); err != nil {
+		log.Printf("Failed to parse tiers YAML: %v", err)
 		return nil, fmt.Errorf("failed to parse tiers YAML: %w", err)
 	}
 
-	return &tierConfig, nil
+	log.Printf("Successfully loaded %d tiers from ConfigMap", len(tiers))
+	return &models.TierConfig{Tiers: tiers}, nil
 }
 
-// Helper function to marshal tiers to YAML string
-func marshalTiersYAML(config *models.TierConfig) (string, error) {
-	tiersYAML, err := yaml.Marshal(config.Tiers)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal tiers: %w", err)
+// Helper function to get keys from a map for logging
+func getMapKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
-	return string(tiersYAML), nil
+	return keys
 }
 
+// Save persists the tier configuration to Kubernetes ConfigMap
+func (k *K8sTierStorage) Save(config *models.TierConfig) error {
+	ctx := context.Background()
+
+	// Marshal tiers to YAML string with 2-space indentation
+	var tiersBuffer bytes.Buffer
+	tiersEncoder := yaml.NewEncoder(&tiersBuffer)
+	tiersEncoder.SetIndent(2)
+	if err := tiersEncoder.Encode(config.Tiers); err != nil {
+		return fmt.Errorf("failed to marshal tiers: %w", err)
+	}
+	tiersEncoder.Close()
+
+	// Remove document separator and trailing newline if present
+	tiersYAML := tiersBuffer.String()
+	tiersYAML = strings.TrimPrefix(tiersYAML, "---\n")
+	tiersYAML = strings.TrimSuffix(tiersYAML, "\n")
+
+	// Try to get existing ConfigMap
+	cm, err := k.Client.CoreV1().ConfigMaps(k.Namespace).Get(ctx, k.ConfigMap, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// ConfigMap doesn't exist, create it
+			newCM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      k.ConfigMap,
+					Namespace: k.Namespace,
+					Labels: map[string]string{
+						"app": "tier-to-group-admin",
+					},
+				},
+				Data: map[string]string{
+					"tiers": tiersYAML,
+				},
+			}
+
+			_, err := k.Client.CoreV1().ConfigMaps(k.Namespace).Create(ctx, newCM, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to create ConfigMap: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get ConfigMap: %w", err)
+	}
+
+	// Update existing ConfigMap
+	cm.Data["tiers"] = tiersYAML
+	_, err = k.Client.CoreV1().ConfigMaps(k.Namespace).Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update ConfigMap: %w", err)
+	}
+
+	return nil
+}
