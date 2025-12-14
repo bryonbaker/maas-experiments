@@ -2,10 +2,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: tier-admin-role
+  name: maas-toolbox-role
   namespace: maas-api
   labels:
-    app: tier-to-group-admin
+    app: maas-toolbox
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
@@ -14,16 +14,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: tier-admin-rolebinding
+  name: maas-toolbox-rolebinding
   namespace: maas-api
   labels:
-    app: tier-to-group-admin
+    app: maas-toolbox
 subjects:
 - kind: ServiceAccount
-  name: tier-to-group-admin
-  namespace: maas-dev
+  name: maas-toolbox-sa
+  namespace: maas-toolbox
 roleRef:
   kind: Role
-  name: tier-admin-role
+  name: maas-toolbox-role
   apiGroup: rbac.authorization.k8s.io
 

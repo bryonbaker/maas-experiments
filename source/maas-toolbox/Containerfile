@@ -29,7 +29,7 @@ RUN (swag init -g cmd/server/main.go -o docs 2>&1 | grep -v "warning: failed to 
     ($HOME/go/bin/swag init -g cmd/server/main.go -o docs 2>&1 | grep -v "warning: failed to get package name" || true)
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tier-admin cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o maas-toolbox cmd/server/main.go
 
 # Runtime stage - Use Fedora minimal
 FROM registry.fedoraproject.org/fedora-minimal:latest
@@ -42,7 +42,7 @@ RUN microdnf -y update \
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /build/tier-admin .
+COPY --from=builder /build/maas-toolbox .
 
 # Note: No USER directive needed - OpenShift/Kubernetes will handle running as non-root
 # via SecurityContext. The application uses Kubernetes ConfigMap API for storage and
@@ -50,4 +50,4 @@ COPY --from=builder /build/tier-admin .
 
 EXPOSE 8080
 
-ENTRYPOINT ["./tier-admin"]
+ENTRYPOINT ["./maas-toolbox"]

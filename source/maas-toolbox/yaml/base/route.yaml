@@ -1,14 +1,14 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: tier-to-group-admin
-  namespace: maas-dev
+  name: maas-toolbox
+  namespace: maas-toolbox
   labels:
-    app: tier-to-group-admin
+    app: maas-toolbox
 spec:
   to:
     kind: Service
-    name: tier-to-group-admin
+    name: maas-toolbox
     weight: 100
   port:
     targetPort: http

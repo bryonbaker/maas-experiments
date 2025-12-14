@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: maas-dev
+  name: maas-toolbox
   labels:
-    name: maas-dev
+    name: maas-toolbox
 

@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # Note: Not setting namespace here because:
-# - Most resources are in maas-dev (set explicitly in each file)
+# - Most resources are in maas-toolbox (set explicitly in each file)
 # - RBAC resources are in maas-api (set explicitly in rbac.yaml)
 # Setting namespace here would override the explicit namespaces
 
@@ -17,5 +17,5 @@ resources:
 labels:
   - includeSelectors: true
     pairs:
-      app: tier-to-group-admin
+      app: maas-toolbox
 

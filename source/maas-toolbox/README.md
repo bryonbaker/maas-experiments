@@ -1,4 +1,4 @@
-# Tier-to-Group Admin API
+# MaaS Toolbox API
 
 A REST API service for managing tier-to-group mappings in the Open Data Hub Model as a Service (MaaS) project. This service provides CRUD operations for managing tiers that map Kubernetes groups to user-defined subscription tiers.
 
@@ -43,7 +43,7 @@ This builds the container image using podman.
 make push
 ```
 
-This tags and pushes the image to `quay.io/bryonbaker/tier-to-group-admin:latest`.
+This tags and pushes the image to `quay.io/bryonbaker/maas-toolbox:latest`.
 
 ### Deployment
 
@@ -62,7 +62,7 @@ All endpoints are under `/api/v1/tiers`
 After deployment, get the route URL:
 
 ```bash
-ROUTE_URL=$(oc get route tier-to-group-admin -n maas-dev -o jsonpath='{.spec.host}')
+ROUTE_URL=$(oc get route maas-toolbox -n maas-dev -o jsonpath='{.spec.host}')
 echo "API URL: https://$ROUTE_URL"
 ```
 
@@ -224,7 +224,7 @@ HTTP Status Codes:
 ### Project Structure
 
 ```
-tier-to-group-admin/
+maas-toolbox/
 ├── cmd/
 │   └── server/
 │       └── main.go          # Application entry point
@@ -277,7 +277,7 @@ A comprehensive test script is provided to test all API endpoints against a depl
 
 ```bash
 # Test against deployed cluster
-./tests/test-api.sh https://tier-to-group-admin-maas-dev.apps.sno.bakerapps.net
+./tests/test-api.sh https://maas-toolbox-maas-dev.apps.sno.bakerapps.net
 ```
 
 The test script will:

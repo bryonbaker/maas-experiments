@@ -1,6 +1,6 @@
 # API Usage Examples
 
-This document provides example curl commands for testing the Tier-to-Group Admin API.
+This document provides example curl commands for testing the MaaS Toolbox API.
 
 ## Prerequisites
 
@@ -19,11 +19,11 @@ This document provides example curl commands for testing the Tier-to-Group Admin
    export BASE_URL="http://localhost:8080"
    
    # For OpenShift deployment (get route URL first)
-   # ROUTE_URL=$(oc get route tier-to-group-admin -n maas-dev -o jsonpath='{.spec.host}')
+   # ROUTE_URL=$(oc get route maas-toolbox -n maas-dev -o jsonpath='{.spec.host}')
    # export BASE_URL="https://${ROUTE_URL}"
    
    # Or set it directly
-   # export BASE_URL="https://tier-to-group-admin-maas-dev.apps.sno.bakerapps.net"
+   # export BASE_URL="https://maas-toolbox-maas-dev.apps.sno.bakerapps.net"
    ```
 
 ## Example Commands
@@ -317,7 +317,7 @@ Expected response (404 Not Found):
 
 ## Using with Postman
 
-1. Create a new collection called "Tier Admin API"
+1. Create a new collection called "MaaS Toolbox API"
 2. Set base URL: `${BASE_URL}` (or your specific URL like `http://localhost:8080`)
 3. Create requests for each endpoint:
    - POST `/api/v1/tiers`

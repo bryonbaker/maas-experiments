@@ -3,22 +3,22 @@
 # Build container image
 build:
 	@echo "Building container image with podman..."
-	@podman build -t tier-to-group-admin:latest .
-	@echo "Container image built: tier-to-group-admin:latest"
+	@podman build -t maas-toolbox:latest .
+	@echo "Container image built: maas-toolbox:latest"
 
 # Push container image to registry
 push: build
-	@echo "Tagging container image as quay.io/bryonbaker/tier-to-group-admin:latest"
-	@podman tag tier-to-group-admin:latest quay.io/bryonbaker/tier-to-group-admin:latest
-	@echo "Pushing container image to quay.io/bryonbaker/tier-to-group-admin:latest"
-	@podman push quay.io/bryonbaker/tier-to-group-admin:latest
-	@echo "Container image pushed to quay.io/bryonbaker/tier-to-group-admin:latest"
+	@echo "Tagging container image as quay.io/bryonbaker/maas-toolbox:latest"
+	@podman tag maas-toolbox:latest quay.io/bryonbaker/maas-toolbox:latest
+	@echo "Pushing container image to quay.io/bryonbaker/maas-toolbox:latest"
+	@podman push quay.io/bryonbaker/maas-toolbox:latest
+	@echo "Container image pushed to quay.io/bryonbaker/maas-toolbox:latest"
 
 # Clean up container images
 clean:
 	@echo "Cleaning..."
-	@podman rmi -f localhost/tier-to-group-admin:latest 2>/dev/null || true
-	@podman rmi -f quay.io/bryonbaker/tier-to-group-admin:latest 2>/dev/null || true
+	@podman rmi -f localhost/maas-toolbox:latest 2>/dev/null || true
+	@podman rmi -f quay.io/bryonbaker/maas-toolbox:latest 2>/dev/null || true
 	@echo "Clean complete"
 
 # Run unit tests (uses fake Kubernetes client, no cluster needed)

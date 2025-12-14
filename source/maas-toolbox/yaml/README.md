@@ -1,6 +1,6 @@
 # OpenShift Deployment Guide
 
-This directory contains the Kubernetes/OpenShift deployment resources for the Tier-to-Group Admin service.
+This directory contains the Kubernetes/OpenShift deployment resources for the MaaS Toolbox service.
 
 ## Prerequisites
 
@@ -36,13 +36,13 @@ Or manually:
 
 ```bash
 # Build the image
-podman build -t tier-to-group-admin:latest .
+podman build -t maas-toolbox:latest .
 
 # Tag for your registry (replace with your registry URL)
-podman tag tier-to-group-admin:latest <registry-url>/tier-to-group-admin:latest
+podman tag maas-toolbox:latest <registry-url>/maas-toolbox:latest
 
 # Push to registry
-podman push <registry-url>/tier-to-group-admin:latest
+podman push <registry-url>/maas-toolbox:latest
 ```
 
 ### 2. Create Namespace
@@ -75,10 +75,10 @@ The application uses Kubernetes client-go's `rest.InClusterConfig()` which autom
 
 ### 5. Update Deployment Image (if needed)
 
-The deployment already references `quay.io/bryonbaker/tier-to-group-admin:latest`. If using a different registry, edit `deployment.yaml` and update the `image` field:
+The deployment already references `quay.io/bryonbaker/maas-toolbox:latest`. If using a different registry, edit `deployment.yaml` and update the `image` field:
 
 ```yaml
-image: <registry-url>/tier-to-group-admin:latest
+image: <registry-url>/maas-toolbox:latest
 ```
 
 ### 6. Deploy Resources
@@ -123,7 +123,7 @@ oc get svc -n maas-dev
 oc get route -n maas-dev
 
 # View logs
-oc logs -f deployment/tier-to-group-admin -n maas-dev
+oc logs -f deployment/maas-toolbox -n maas-dev
 ```
 
 ### 8. Test the API
@@ -131,7 +131,7 @@ oc logs -f deployment/tier-to-group-admin -n maas-dev
 Get the route URL:
 
 ```bash
-ROUTE_URL=$(oc get route tier-to-group-admin -n maas-dev -o jsonpath='{.spec.host}')
+ROUTE_URL=$(oc get route maas-toolbox -n maas-dev -o jsonpath='{.spec.host}')
 echo "API URL: https://$ROUTE_URL"
 ```
 
@@ -167,7 +167,7 @@ The ConfigMap will be created in the `maas-dev` namespace with the name `tier-to
 The service account used by the deployment needs permissions to manage ConfigMaps. These are defined in `rbac.yaml`:
 
 - **Role**: Grants `get`, `list`, `watch`, `create`, `update`, and `patch` permissions on ConfigMaps in the `maas-dev` namespace
-- **RoleBinding**: Binds the `tier-to-group-admin` service account to the `tier-admin-role`
+- **RoleBinding**: Binds the `maas-toolbox` service account to the `tier-admin-role`
 
 The RBAC resources are automatically applied when you run:
 

@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tier-to-group-admin
-  namespace: maas-dev
+  name: maas-toolbox
+  namespace: maas-toolbox
   labels:
-    app: tier-to-group-admin
+    app: maas-toolbox
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tier-to-group-admin
+      app: maas-toolbox
   template:
     metadata:
       labels:
-        app: tier-to-group-admin
+        app: maas-toolbox
     spec:
       # Service account token is automatically mounted and managed by Kubernetes
       # The application uses client-go's rest.InClusterConfig() which automatically
       # reads and refreshes the service account token from the mounted secret volume
-      serviceAccountName: tier-to-group-admin
+      serviceAccountName: maas-toolbox-sa
       containers:
-      - name: tier-admin
-        image: quay.io/bryonbaker/tier-to-group-admin:latest
+      - name: maas-toolbox
+        image: quay.io/bryonbaker/maas-toolbox:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -37,7 +37,7 @@ spec:
         # ROUTE_HOST is optional - if not set, Swagger will use the request's Host header
         # To set explicitly, uncomment and set to your route hostname:
         # - name: ROUTE_HOST
-        #   value: "tier-to-group-admin-maas-dev.apps.sno.bakerapps.net"
+        #   value: "maas-toolbox-maas-toolbox.apps.sno.bakerapps.net"
         args:
         - "--port=8080"
         resources:
