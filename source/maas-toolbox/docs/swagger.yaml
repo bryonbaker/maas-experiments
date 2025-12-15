@@ -15,6 +15,30 @@ definitions:
       error:
         type: string
     type: object
+  models.LLMInferenceService:
+    description: LLMInferenceService custom resource from KServe
+    properties:
+      name:
+        description: Name of the LLMInferenceService
+        example: acme-dev-model
+        type: string
+      namespace:
+        description: Namespace where the service is deployed
+        example: acme-inc-models
+        type: string
+      spec:
+        additionalProperties: true
+        description: Full spec of the LLMInferenceService
+        type: object
+      tiers:
+        description: List of tiers associated with this service
+        example:
+        - acme-dev-users-tier
+        - acme-prod-users-tier
+        items:
+          type: string
+        type: array
+    type: object
   models.Tier:
     description: Tier configuration that maps Kubernetes groups to a subscription
       tier
@@ -53,6 +77,36 @@ info:
   title: Open Data Hub MaaS Toolbox API
   version: "1.0"
 paths:
+  /groups/{group}/llminferenceservices:
+    get:
+      description: Retrieve all LLMInferenceService instances associated with the
+        specified group (via tiers)
+      parameters:
+      - description: Group name
+        in: path
+        name: group
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of LLMInferenceService instances for the group
+          schema:
+            items:
+              $ref: '#/definitions/models.LLMInferenceService'
+            type: array
+        "400":
+          description: Bad request - invalid group name format
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get LLMInferenceServices by group
+      tags:
+      - llminferenceservices
   /groups/{group}/tiers:
     get:
       description: Retrieve all tiers that contain the specified Kubernetes group
@@ -299,6 +353,36 @@ paths:
       summary: Remove a group from a tier
       tags:
       - groups
+  /tiers/{name}/llminferenceservices:
+    get:
+      description: Retrieve all LLMInferenceService instances that have the specified
+        tier in their annotation
+      parameters:
+      - description: Tier name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of LLMInferenceService instances with the tier
+          schema:
+            items:
+              $ref: '#/definitions/models.LLMInferenceService'
+            type: array
+        "404":
+          description: Tier not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get LLMInferenceServices by tier
+      tags:
+      - llminferenceservices
 schemes:
 - https
 swagger: "2.0"

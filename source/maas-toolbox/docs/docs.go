@@ -22,6 +22,50 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/groups/{group}/llminferenceservices": {
+            "get": {
+                "description": "Retrieve all LLMInferenceService instances associated with the specified group (via tiers)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "llminferenceservices"
+                ],
+                "summary": "Get LLMInferenceServices by group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "group",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of LLMInferenceService instances for the group",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LLMInferenceService"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid group name format",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/groups/{group}/tiers": {
             "get": {
                 "description": "Retrieve all tiers that contain the specified Kubernetes group",
@@ -388,6 +432,50 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/tiers/{name}/llminferenceservices": {
+            "get": {
+                "description": "Retrieve all LLMInferenceService instances that have the specified tier in their annotation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "llminferenceservices"
+                ],
+                "summary": "Get LLMInferenceServices by tier",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tier name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of LLMInferenceService instances with the tier",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LLMInferenceService"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Tier not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -410,6 +498,38 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "type": "string"
+                }
+            }
+        },
+        "models.LLMInferenceService": {
+            "description": "LLMInferenceService custom resource from KServe",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name of the LLMInferenceService",
+                    "type": "string",
+                    "example": "acme-dev-model"
+                },
+                "namespace": {
+                    "description": "Namespace where the service is deployed",
+                    "type": "string",
+                    "example": "acme-inc-models"
+                },
+                "spec": {
+                    "description": "Full spec of the LLMInferenceService",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "tiers": {
+                    "description": "List of tiers associated with this service",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "acme-dev-users-tier",
+                        "acme-prod-users-tier"
+                    ]
                 }
             }
         },

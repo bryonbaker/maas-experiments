@@ -34,8 +34,11 @@ func SetupRouter(tierService *service.TierService) *gin.Engine {
 	// Logger middleware logs all HTTP requests
 	router := gin.Default()
 
+	// Create LLMInferenceServiceService
+	llmServiceService := service.NewLLMInferenceServiceService(tierService)
+
 	// Create handler
-	handler := NewTierHandler(tierService)
+	handler := NewTierHandler(tierService, llmServiceService)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -50,6 +53,10 @@ func SetupRouter(tierService *service.TierService) *gin.Engine {
 		v1.POST("/tiers/:name/groups", handler.AddGroup)
 		v1.DELETE("/tiers/:name/groups/:group", handler.RemoveGroup)
 		v1.GET("/groups/:group/tiers", handler.GetTiersByGroup)
+
+		// LLMInferenceService routes
+		v1.GET("/tiers/:name/llminferenceservices", handler.GetLLMInferenceServicesByTier)
+		v1.GET("/groups/:group/llminferenceservices", handler.GetLLMInferenceServicesByGroup)
 	}
 
 	// Health check endpoint

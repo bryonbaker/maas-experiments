@@ -25,13 +25,15 @@ import (
 
 // TierHandler handles HTTP requests for tier management
 type TierHandler struct {
-	service *service.TierService
+	service              *service.TierService
+	llmServiceService    *service.LLMInferenceServiceService
 }
 
 // NewTierHandler creates a new TierHandler instance
-func NewTierHandler(service *service.TierService) *TierHandler {
+func NewTierHandler(service *service.TierService, llmServiceService *service.LLMInferenceServiceService) *TierHandler {
 	return &TierHandler{
-		service: service,
+		service:           service,
+		llmServiceService: llmServiceService,
 	}
 }
 
@@ -329,4 +331,67 @@ func (h *TierHandler) GetTiersByGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tiers)
+}
+
+// GetLLMInferenceServicesByTier handles GET /api/v1/tiers/:name/llminferenceservices
+// @Summary      Get LLMInferenceServices by tier
+// @Description  Retrieve all LLMInferenceService instances that have the specified tier in their annotation
+// @Tags         llminferenceservices
+// @Produce      json
+// @Param        name  path      string  true  "Tier name"
+// @Success      200   {array}   models.LLMInferenceService  "List of LLMInferenceService instances with the tier"
+// @Failure      404   {object}  ErrorResponse  "Tier not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /tiers/{name}/llminferenceservices [get]
+func (h *TierHandler) GetLLMInferenceServicesByTier(c *gin.Context) {
+	tierName := c.Param("name")
+	
+	// Verify tier exists
+	_, err := h.service.GetTier(tierName)
+	if err != nil {
+		if err == models.ErrTierNotFound {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	// Get LLMInferenceServices for this tier
+	services, err := h.llmServiceService.GetLLMInferenceServicesByTier(tierName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, services)
+}
+
+// GetLLMInferenceServicesByGroup handles GET /api/v1/groups/:group/llminferenceservices
+// @Summary      Get LLMInferenceServices by group
+// @Description  Retrieve all LLMInferenceService instances associated with the specified group (via tiers)
+// @Tags         llminferenceservices
+// @Produce      json
+// @Param        group  path      string  true  "Group name"
+// @Success      200    {array}   models.LLMInferenceService  "List of LLMInferenceService instances for the group"
+// @Failure      400    {object}  ErrorResponse  "Bad request - invalid group name format"
+// @Failure      500    {object}  ErrorResponse  "Internal server error"
+// @Router       /groups/{group}/llminferenceservices [get]
+func (h *TierHandler) GetLLMInferenceServicesByGroup(c *gin.Context) {
+	groupName := c.Param("group")
+	
+	// Validate group name format
+	if err := models.ValidateGroupName(groupName); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Get LLMInferenceServices for this group
+	services, err := h.llmServiceService.GetLLMInferenceServicesByGroup(groupName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, services)
 }

@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -225,4 +226,108 @@ func (k *K8sTierStorage) GroupExists(groupName string) (bool, error) {
 
 	log.Printf("Group %s exists in cluster", groupName)
 	return true, nil
+}
+
+// ListLLMInferenceServices lists all LLMInferenceService resources across all namespaces
+func ListLLMInferenceServices() ([]*unstructured.Unstructured, error) {
+	ctx := context.Background()
+
+	// Get REST config
+	config, err := getRESTConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get REST config: %w", err)
+	}
+
+	// Create dynamic client
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	// Define LLMInferenceService resource
+	llmResource := schema.GroupVersionResource{
+		Group:    "serving.kserve.io",
+		Version:  "v1alpha1",
+		Resource: "llminferenceservices",
+	}
+
+	// List all LLMInferenceServices across all namespaces
+	list, err := dynamicClient.Resource(llmResource).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Printf("Error listing LLMInferenceServices: %v", err)
+		return nil, fmt.Errorf("failed to list LLMInferenceServices: %w", err)
+	}
+
+	log.Printf("Found %d LLMInferenceService resources", len(list.Items))
+
+	// Convert items to slice of pointers
+	items := make([]*unstructured.Unstructured, len(list.Items))
+	for i := range list.Items {
+		items[i] = &list.Items[i]
+	}
+
+	return items, nil
+}
+
+// GetLLMInferenceServicesByTier filters LLMInferenceServices by tier annotation
+func GetLLMInferenceServicesByTier(tierName string) ([]*unstructured.Unstructured, error) {
+	// List all LLMInferenceServices
+	allServices, err := ListLLMInferenceServices()
+	if err != nil {
+		return nil, err
+	}
+
+	var matchingServices []*unstructured.Unstructured
+
+	for _, service := range allServices {
+		// Extract annotations
+		annotations, found, err := unstructured.NestedStringMap(service.Object, "metadata", "annotations")
+		if err != nil {
+			log.Printf("Error extracting annotations from LLMInferenceService %s/%s: %v",
+				getNamespace(service), getName(service), err)
+			continue
+		}
+
+		if !found || annotations == nil {
+			// No annotations, skip
+			continue
+		}
+
+		// Get tiers annotation
+		tiersAnnotation, exists := annotations[models.TierAnnotationKey]
+		if !exists || tiersAnnotation == "" {
+			// No tiers annotation, skip
+			continue
+		}
+
+		// Parse tiers from annotation
+		tiers, err := models.ParseTiersFromAnnotation(tiersAnnotation)
+		if err != nil {
+			log.Printf("Error parsing tiers annotation for LLMInferenceService %s/%s: %v",
+				getNamespace(service), getName(service), err)
+			continue
+		}
+
+		// Check if tier is in the list
+		for _, tier := range tiers {
+			if tier == tierName {
+				matchingServices = append(matchingServices, service)
+				break
+			}
+		}
+	}
+
+	log.Printf("Found %d LLMInferenceService resources with tier %s", len(matchingServices), tierName)
+	return matchingServices, nil
+}
+
+// Helper functions to extract name and namespace from unstructured object
+func getName(obj *unstructured.Unstructured) string {
+	name, _, _ := unstructured.NestedString(obj.Object, "metadata", "name")
+	return name
+}
+
+func getNamespace(obj *unstructured.Unstructured) string {
+	namespace, _, _ := unstructured.NestedString(obj.Object, "metadata", "namespace")
+	return namespace
 }
