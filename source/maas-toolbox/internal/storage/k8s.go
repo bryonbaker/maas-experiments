@@ -180,6 +180,12 @@ func getRESTConfig() (*rest.Config, error) {
 // GroupExists checks if a Group exists in the OpenShift cluster
 // Groups are cluster-scoped resources in the user.openshift.io/v1 API group
 func (k *K8sTierStorage) GroupExists(groupName string) (bool, error) {
+	// Need to handle the special case of "system:authenticated" being a
+	// hard-coded group in Kubernetes that is not returned in a list of cluster groups.
+	if groupName == "system:authenticated" {
+		return true, nil
+	}
+
 	ctx := context.Background()
 
 	// Get REST config
