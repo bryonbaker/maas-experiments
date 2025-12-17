@@ -1,10 +1,8 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: maas-tier-config
+  name: 4xlarge-machine-set-app
   namespace: openshift-gitops
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
   labels:
     app.kubernetes.io/part-of: platform
   annotations:
@@ -15,19 +13,17 @@ spec:
   source:
     repoURL: 'https://github.com/bryonbaker/maas-experiments'
     targetRevision: main
-    path: components/platform/maas/base
+    path: components/platform/machine-set/base
   destination:
     server: https://kubernetes.default.svc
-    namespace: maas-api
+    namespace: openshift-machine-api
+  labels:
+    app.kubernetes.io/part-of: platform
   syncPolicy:
     # Manual sync - changes require manual sync from Argo CD UI/CLI
-    automated:
-      enabled: false      # Explicitly disables automated sync
-      prune: false        # Don't auto-prune deleted resources
-      selfHeal: false     # Don't auto-correct manual cluster changes
     syncOptions:
-      - CreateNamespace=true
+      # Let Argo create the target namespace for MinIO.
+      - CreateNamespace=false
       # Optional but useful in day-2:
       - ApplyOutOfSyncOnly=true
-  preserveResourcesOnDeletion: false
   revisionHistoryLimit: 5

@@ -1,24 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: maas-tier-config
+  name: maas-experiments-root-application
   namespace: openshift-gitops
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-  labels:
-    app.kubernetes.io/part-of: platform
   annotations:
-    # Ensure this deploys after any future "cluster-basics" bundles if you add them.
-    argocd.argoproj.io/sync-wave: "30"
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   source:
     repoURL: 'https://github.com/bryonbaker/maas-experiments'
     targetRevision: main
-    path: components/platform/maas/base
+    path: clusters/ocpai3-aws
   destination:
     server: https://kubernetes.default.svc
-    namespace: maas-api
+    namespace: openshift-gitops
   syncPolicy:
     # Manual sync - changes require manual sync from Argo CD UI/CLI
     automated:
@@ -26,8 +21,4 @@ spec:
       prune: false        # Don't auto-prune deleted resources
       selfHeal: false     # Don't auto-correct manual cluster changes
     syncOptions:
-      - CreateNamespace=true
-      # Optional but useful in day-2:
-      - ApplyOutOfSyncOnly=true
-  preserveResourcesOnDeletion: false
-  revisionHistoryLimit: 5
+      - ApplyOutOfSyncOnly=true # 'true' means only apply changes that are out of sync, 'false' means apply all changes

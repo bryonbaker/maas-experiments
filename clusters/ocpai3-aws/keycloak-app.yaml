@@ -21,6 +21,10 @@ spec:
     namespace: keycloak
   syncPolicy:
     # Manual sync - changes require manual sync from Argo CD UI/CLI
+    automated:
+      enabled: false      # Explicitly disables automated sync
+      prune: false        # Don't auto-prune deleted resources
+      selfHeal: false     # Don't auto-correct manual cluster changes
     syncOptions:
       - CreateNamespace=true
       # Optional but useful in day-2:

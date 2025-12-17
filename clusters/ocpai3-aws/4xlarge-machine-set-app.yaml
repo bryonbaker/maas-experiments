@@ -21,6 +21,10 @@ spec:
     app.kubernetes.io/part-of: platform
   syncPolicy:
     # Manual sync - changes require manual sync from Argo CD UI/CLI
+    automated:
+      enabled: false      # Explicitly disables automated sync
+      prune: false        # Don't auto-prune deleted resources
+      selfHeal: false     # Don't auto-correct manual cluster changes
     syncOptions:
       # Let Argo create the target namespace for MinIO.
       - CreateNamespace=false

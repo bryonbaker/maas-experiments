@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 4xlarge-machine-set-app.yaml
+  - acme-inc-models-app.yaml
+  - gpu-models-app.yaml
+  # keycloak-app.yaml is intentionally excluded
+  - maas-tier-config-app.yaml
+  - oauth-app.yaml
+  - public-models-app.yaml

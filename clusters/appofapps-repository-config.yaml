@@ -1,14 +1,14 @@
 apiVersion: v1
-data:
-  # "default" project
-  project: ZGVmYXVsdA==
-  type: Z2l0
-  # https://github.com/bryonbaker/maas-experiments.git
-  url: aHR0cHM6Ly9naXRodWIuY29tL2JyeW9uYmFrZXIvbWFhcy1leHBlcmltZW50cy5naXQ=
 kind: Secret
 metadata:
   labels:
     argocd.argoproj.io/secret-type: repository
   name: appofapps-repository-config
   namespace: openshift-gitops
+data:
+  # "default" project
+  project: ZGVmYXVsdA==
+  type: Z2l0
+  # https://github.com/bryonbaker/maas-experiments.git
+  url: aHR0cHM6Ly9naXRodWIuY29tL2JyeW9uYmFrZXIvbWFhcy1leHBlcmltZW50cy5naXQ=
 type: Opaque
