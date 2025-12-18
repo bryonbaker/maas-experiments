@@ -4,10 +4,19 @@ metadata:
   name: cluster
 spec:
   identityProviders:
-    - name: local-htpasswd
-      mappingMethod: claim
-      type: HTPasswd
-      htpasswd:
-        fileData:
-          name: htpass-secret
+  - github:
+      clientID: Ov23liCRdg5K5jlfAoSd
+      clientSecret:
+        name: github-oauth-secret
+      organizations:
+      - ExternalOpenShiftAuthz
+    mappingMethod: claim
+    name: github
+    type: GitHub
+  - htpasswd:
+      fileData:
+        name: htpass-secret
+    mappingMethod: claim
+    name: local-htpasswd
+    type: HTPasswd
 
