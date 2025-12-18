@@ -9,3 +9,9 @@ resources:
   - machine-set-app.yaml
   - oauth-app.yaml
   - public-models-app.yaml
+  - nfd-operator-application.yaml
+  - nfd-instance.yaml
+#  - nvidia-operator-application.yaml
+#  - nvidia-cluster-policy-application.yaml
+  - ocpai-operator.yaml
+#  - ocpai-dcs-instance.yaml
