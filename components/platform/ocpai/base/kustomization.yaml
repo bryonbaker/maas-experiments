@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - dsc.yaml
   - odh-dashboard-config.yaml
+  - hardware-profile.yaml
