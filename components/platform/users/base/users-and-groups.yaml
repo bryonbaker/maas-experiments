@@ -10,13 +10,15 @@ groups: null
 identities:
 - local-htpasswd:acme-user1
 
+---
+
 apiVersion: user.openshift.io/v1
 kind: User
 metadata:
   name: acme-user2
 groups: null
 identities:
-- local-htpasswd:acme-user1
+- local-htpasswd:acme-user2
 
 ---
 
@@ -41,6 +43,8 @@ kind: Group
 metadata:
   name: serverless
 users: [bryonbaker, noyitz, bartoszmajsak, butler54, nagarajan-ethan, acme-user1, acme-user2]
+
+---
 
 # Users from the Red Hat company
 apiVersion: user.openshift.io/v1
