@@ -70,6 +70,8 @@ Tiers define access levels and resource allocation for different user groups. Th
 | **red-hat-dedicated** | 50 | Tier for Red Hat's dedicated models | red-hat-users |
 | **ethan-group-dedicated** | 50 | Tier for Ethan Group's dedicated models | ethan-group-users |
 
+Note: There is currently a bug that limits a user to only accessing models in one tier. (The highest priority tier.) This only impacts users that have more than one tier (obviously).
+
 ### Tier Level Explanation
 
 - **Level 1**: Entry-level tier (serverless, shared resources)
