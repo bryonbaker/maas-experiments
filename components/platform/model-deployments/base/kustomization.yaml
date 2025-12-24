@@ -4,5 +4,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - acme-inc-model-1-llm-inference.yaml
+  - ethan-group-model-1-llm-inference.yaml
   - serverless-model-1-llm-inference.yaml
   - serverless-model-2-llm-inference.yaml
