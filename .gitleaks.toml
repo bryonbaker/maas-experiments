@@ -2,7 +2,7 @@
   description = "Allow specific secret files as they are not secrets that matter."
 
   paths = [
-    "components/platform/users/files/users.htpasswd"
-    "components/platform/users/base/htpass-secret.yaml"
+    "components/platform/users/files/users.htpasswd",
+    "components/platform/users/base/htpass-secret.yaml",
     "components/app/keycloak/admin-secret.yaml"
   ]
