@@ -8,15 +8,15 @@ metadata:
   namespace: openshift-ingress
 spec:
   limits:
-    free-user-tokens:
+    serverless-user-tokens:
       counters:
         - expression: auth.identity.userid
       rates:
         - limit: 100
-          window: 1m
+          window: 5m
       when:
         - predicate: |
-            auth.identity.tier == "free"
+            auth.identity.tier == "serverless"
   targetRef:
     group: gateway.networking.k8s.io
     kind: Gateway
