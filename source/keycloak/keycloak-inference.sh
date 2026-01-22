@@ -1,11 +1,33 @@
 #! /bin/bash
 
+# Startup message
+echo "Inference tester."
+echo "Note: The client secret is from the 'maas' client in Keycloak."
+echo ""
+
+# Check for required environment variables
+if [ -z "$CLIENT_SECRET" ]; then
+    echo "ERROR: CLIENT_SECRET environment variable is not set"
+    exit 1
+fi
+
+if [ -z "$USERNAME" ]; then
+    echo "ERROR: USERNAME environment variable is not set"
+    exit 1
+fi
+
+if [ -z "$PASSWORD" ]; then
+    echo "ERROR: PASSWORD environment variable is not set"
+    exit 1
+fi
+
 # Get a token from Key Cloak to access the OpenShift cluster
-export KK_JWT=$(curl -d 'client_id=maas' -d 'client_secret=<client_secret>' -d 'username=<username>' -d 'password=password' -d 'grant_type=password' '<keycloak_url>/realms/red-hat/protocol/openid-connect/token' | jq -r '.access_token')
+
+export KK_JWT=$(curl -d 'client_id=maas' -d "client_secret=${CLIENT_SECRET}" -d "username=${USERNAME}" -d "password=${PASSWORD}" -d 'grant_type=password' 'https://keycloak.apps.ethan-sno-kk.sandbox3469.opentlc.com/realms/maas-tenants/protocol/openid-connect/token' | jq -r '.access_token')
 echo "Keycloak JWT: $KK_JWT"
 
 # Get cluster details
-CLUSTER_DOMAIN=$(kubectl get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')
+CLUSTER_DOMAIN="apps.ethan-sno-kk.sandbox3469.opentlc.com"
 echo "Cluster domain: $CLUSTER_DOMAIN"
 
 # http:// until the bug is pushed to main branch
@@ -20,7 +42,7 @@ TOKEN_RESPONSE=$(curl -sSk \
   -d '{"expiration": "10m"}' \
   "${HOST}/maas-api/v1/tokens")
 
-echo $TOKEN_RESPONSE
+echo "MaaS token response: $TOKEN_RESPONSE"
 
 TOKEN=$(echo $TOKEN_RESPONSE | jq -r .token)
 

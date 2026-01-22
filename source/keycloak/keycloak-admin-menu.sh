@@ -11,6 +11,11 @@ REALM="maas-tenants"
 CLIENT_ID="realm-admin-cli"
 CLIENT_SECRET="${KEYCLOAK_ADMIN_SECRET}"
 
+# MaaS Token Configuration
+MAAS_CLIENT_ID="${MAAS_CLIENT_ID:-maas}"
+MAAS_CLIENT_SECRET="${MAAS_CLIENT_SECRET}"
+MAAS_TOKEN_EXPIRATION="${MAAS_TOKEN_EXPIRATION:-10m}"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -379,6 +384,138 @@ find_user_by_email() {
     fi
     
     echo "$user_id"
+}
+
+#############################################################################
+# MaaS Token Helper Functions
+#############################################################################
+
+# Get OpenShift cluster domain
+get_cluster_domain() {
+    local domain=$(kubectl get ingresses.config.openshift.io cluster \
+                   -o jsonpath='{.spec.domain}' 2>/dev/null)
+    
+    if [ -z "$domain" ]; then
+        return 1
+    fi
+    
+    echo "$domain"
+    return 0
+}
+
+# Get Keycloak JWT for user using password grant
+get_keycloak_jwt_for_user() {
+    local username="$1"
+    local password="$2"
+    
+    # Validate inputs
+    if [ -z "$username" ] || [ -z "$password" ]; then
+        return 1
+    fi
+    
+    # Authenticate with Keycloak using password grant
+    local response=$(curl -sS \
+        -d "client_id=${MAAS_CLIENT_ID}" \
+        -d "client_secret=${MAAS_CLIENT_SECRET}" \
+        -d "username=${username}" \
+        -d "password=${password}" \
+        -d "grant_type=password" \
+        "${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token" 2>&1)
+    
+    # Check for errors
+    local error=$(echo "$response" | jq -r '.error // empty' 2>/dev/null)
+    if [ -n "$error" ]; then
+        local error_desc=$(echo "$response" | jq -r '.error_description // "Unknown error"')
+        echo "ERROR: $error - $error_desc" >&2
+        return 1
+    fi
+    
+    # Extract access token
+    local jwt=$(echo "$response" | jq -r '.access_token // empty' 2>/dev/null)
+    if [ -z "$jwt" ] || [ "$jwt" = "null" ]; then
+        echo "ERROR: No access token in response" >&2
+        return 1
+    fi
+    
+    echo "$jwt"
+    return 0
+}
+
+# Exchange Keycloak JWT for MaaS token
+exchange_jwt_for_maas_token() {
+    local keycloak_jwt="$1"
+    local expiration="${2:-10m}"
+    
+    # Validate input
+    if [ -z "$keycloak_jwt" ]; then
+        return 1
+    fi
+    
+    # Get cluster domain
+    local cluster_domain=$(get_cluster_domain)
+    if [ -z "$cluster_domain" ]; then
+        echo "ERROR: Failed to get cluster domain" >&2
+        return 1
+    fi
+    
+    # Construct MaaS API URL
+    local maas_url="http://maas.${cluster_domain}"
+    
+    # Exchange JWT for MaaS token
+    local response=$(curl -sSk \
+        -H "Authorization: Bearer ${keycloak_jwt}" \
+        -H "Content-Type: application/json" \
+        -X POST \
+        -d "{\"expiration\": \"${expiration}\"}" \
+        "${maas_url}/maas-api/v1/tokens" 2>&1)
+    
+    # Check for errors
+    local error=$(echo "$response" | jq -r '.error // empty' 2>/dev/null)
+    if [ -n "$error" ]; then
+        local message=$(echo "$response" | jq -r '.message // "Unknown error"')
+        echo "ERROR: $error - $message" >&2
+        return 1
+    fi
+    
+    # Extract token
+    local token=$(echo "$response" | jq -r '.token // empty' 2>/dev/null)
+    if [ -z "$token" ] || [ "$token" = "null" ]; then
+        echo "ERROR: No token in response" >&2
+        return 1
+    fi
+    
+    echo "$token"
+    return 0
+}
+
+# Decode JWT claims
+decode_jwt_claims() {
+    local jwt="$1"
+    
+    # Extract payload (second part of JWT)
+    local payload=$(echo "$jwt" | cut -d. -f2)
+    
+    # Add padding if needed (JWT Base64 may not have padding)
+    local mod=$((${#payload} % 4))
+    if [ $mod -ne 0 ]; then
+        payload="${payload}$(printf '=%.0s' $(seq 1 $((4 - mod))))"
+    fi
+    
+    # Decode and pretty print
+    echo "$payload" | base64 -d 2>/dev/null | jq . 2>/dev/null
+    return ${PIPESTATUS[1]}
+}
+
+# Format JWT display with preview
+format_jwt_display() {
+    local jwt="$1"
+    local label="$2"
+    local length=${#jwt}
+    local preview=$(echo "$jwt" | cut -c1-80)
+    
+    echo "$label:"
+    echo "$preview..."
+    echo "(First 80 chars shown, full token: $length characters)"
 }
 
 # Get group members count
@@ -1469,6 +1606,7 @@ show_users_menu() {
     echo "  6. Delete User"
     echo "  7. Add User to Group"
     echo "  8. Remove User from Group"
+    echo "  9. Get MaaS Token for User"
     echo ""
     echo "  0. Back to Main Menu"
     echo ""
@@ -1489,6 +1627,7 @@ manage_users_menu() {
             6) delete_user ;;
             7) add_user_to_group ;;
             8) remove_user_from_group ;;
+            9) get_maas_token_for_user ;;
             0) return ;;
             *)
                 show_error "Invalid option"
@@ -2390,6 +2529,197 @@ remove_user_from_group() {
     else
         pause
     fi
+}
+
+# 3.9 Get MaaS Token for User
+get_maas_token_for_user() {
+    clear_screen
+    draw_header "Get MaaS Token for User"
+    
+    # Step 1: Validate MaaS client secret is configured
+    if [ -z "$MAAS_CLIENT_SECRET" ]; then
+        show_error "MAAS_CLIENT_SECRET environment variable not set"
+        echo ""
+        echo "Please set the MaaS client secret:"
+        echo "  export MAAS_CLIENT_SECRET='<your-secret>'"
+        echo ""
+        pause
+        return
+    fi
+    
+    # Step 2: Get tenant name
+    tenant_name=$(get_input "Enter tenant name")
+    
+    if [ -z "$tenant_name" ]; then
+        show_error "Tenant name is required"
+        pause
+        return
+    fi
+    
+    # Step 3: Verify tenant exists
+    show_info "Verifying tenant exists..."
+    local tenant_path="/${tenant_name}"
+    local tenant_id=$(find_group_by_path "$tenant_path")
+    
+    if [ -z "$tenant_id" ] || [ "$tenant_id" = "null" ]; then
+        show_error "Tenant '${tenant_name}' not found"
+        pause
+        return
+    fi
+    
+    # Step 4: Get username
+    username=$(get_input "Enter username")
+    
+    if [ -z "$username" ]; then
+        show_error "Username is required"
+        pause
+        return
+    fi
+    
+    # Step 5: Verify user exists
+    show_info "Verifying user exists..."
+    local user_id=$(find_user_by_email "$username")
+    
+    if [ -z "$user_id" ] || [ "$user_id" = "null" ]; then
+        show_error "User '${username}' not found"
+        pause
+        return
+    fi
+    
+    # Step 6: Validate user is a member of the tenant group
+    show_info "Validating user is a member of tenant '${tenant_name}'..."
+    local user_groups=$(api_get "/admin/realms/${REALM}/users/${user_id}/groups")
+    local is_member=$(echo "$user_groups" | jq -r --arg path "$tenant_path" '.[] | select(.path == $path) | .id')
+    
+    if [ -z "$is_member" ]; then
+        show_error "User '${username}' is not a member of tenant '${tenant_name}'"
+        echo ""
+        echo "User's current groups:"
+        local group_count=$(echo "$user_groups" | jq 'length')
+        if [ "$group_count" -gt 0 ]; then
+            echo "$user_groups" | jq -r '.[] | "  • \(.path)"'
+        else
+            echo "  (none)"
+        fi
+        echo ""
+        pause
+        return
+    fi
+    
+    # Step 7: Get user's password (secure input)
+    echo ""
+    echo -n "Enter user password (hidden): " >&2
+    read -s password
+    echo "" >&2
+    
+    if [ -z "$password" ]; then
+        show_error "Password is required"
+        pause
+        return
+    fi
+    
+    # Step 8: Get Keycloak JWT
+    echo ""
+    show_info "Authenticating with Keycloak..."
+    local keycloak_jwt=$(get_keycloak_jwt_for_user "$username" "$password")
+    
+    if [ $? -ne 0 ] || [ -z "$keycloak_jwt" ]; then
+        show_error "Failed to authenticate with Keycloak"
+        echo ""
+        echo "Possible reasons:"
+        echo "  • Invalid password"
+        echo "  • User account is disabled"
+        echo "  • MaaS client secret is incorrect"
+        echo ""
+        pause
+        return
+    fi
+    
+    show_success "Keycloak JWT obtained successfully"
+    
+    # Step 9: Exchange for MaaS token
+    show_info "Exchanging JWT for MaaS token..."
+    local maas_token=$(exchange_jwt_for_maas_token "$keycloak_jwt" "$MAAS_TOKEN_EXPIRATION")
+    
+    if [ $? -ne 0 ] || [ -z "$maas_token" ]; then
+        show_error "Failed to get MaaS token"
+        echo ""
+        echo "Possible reasons:"
+        echo "  • MaaS API is not accessible"
+        echo "  • User is not authorized for MaaS"
+        echo "  • User groups are not mapped to a tier"
+        echo ""
+        pause
+        return
+    fi
+    
+    show_success "MaaS token generated successfully"
+    
+    # Step 10: Display results
+    echo ""
+    echo "${BLUE}═══════════════════════════════════════════${NC}"
+    echo "${BLUE}  Token Information${NC}"
+    echo "${BLUE}═══════════════════════════════════════════${NC}"
+    echo ""
+    echo "User: ${username}"
+    echo "─────────────────────────────────────────────"
+    echo ""
+    
+    # Display Keycloak JWT preview
+    format_jwt_display "$keycloak_jwt" "Keycloak JWT"
+    echo ""
+    
+    # Display full MaaS token
+    echo "MaaS Token:"
+    echo "$maas_token"
+    echo "(Full token)"
+    echo ""
+    
+    # Decode and show MaaS token claims (mandatory)
+    echo "Token Details from MaaS JWT:"
+    local claims=$(decode_jwt_claims "$maas_token")
+    if [ $? -eq 0 ] && [ -n "$claims" ]; then
+        # Extract and format specific fields
+        local issued_at=$(echo "$claims" | jq -r '.iat // empty' 2>/dev/null)
+        local expires_at=$(echo "$claims" | jq -r '.exp // empty' 2>/dev/null)
+        local token_username=$(echo "$claims" | jq -r '.username // .preferred_username // empty' 2>/dev/null)
+        local token_groups=$(echo "$claims" | jq -r '.groups // empty' 2>/dev/null)
+        local token_tier=$(echo "$claims" | jq -r '.tier // empty' 2>/dev/null)
+        
+        # Format timestamps if available
+        if [ -n "$issued_at" ] && [ "$issued_at" != "null" ]; then
+            local issued_formatted=$(date -d "@${issued_at}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo "$issued_at")
+            echo "  • Issued At:  $issued_formatted"
+        fi
+        
+        if [ -n "$expires_at" ] && [ "$expires_at" != "null" ]; then
+            local expires_formatted=$(date -d "@${expires_at}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo "$expires_at")
+            echo "  • Expires:    $expires_formatted"
+        fi
+        
+        [ -n "$token_username" ] && [ "$token_username" != "null" ] && echo "  • Username:   $token_username"
+        
+        # Format groups if it's an array
+        if [ -n "$token_groups" ] && [ "$token_groups" != "null" ]; then
+            if echo "$token_groups" | jq -e 'type == "array"' >/dev/null 2>&1; then
+                local groups_formatted=$(echo "$token_groups" | jq -r 'join(", ")' 2>/dev/null)
+                [ -n "$groups_formatted" ] && echo "  • Groups:     $groups_formatted"
+            else
+                echo "  • Groups:     $token_groups"
+            fi
+        fi
+        
+        [ -n "$token_tier" ] && [ "$token_tier" != "null" ] && echo "  • Tier:       $token_tier"
+    else
+        show_error "Unable to decode MaaS JWT claims"
+    fi
+    
+    echo ""
+    
+    # Clear password variable for security
+    unset password
+    
+    pause
 }
 
 #############################################################################
