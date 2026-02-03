@@ -1,10 +1,6 @@
 apiVersion: kuadrant.io/v1
 kind: AuthPolicy
 metadata:
-  labels:
-    app.kubernetes.io/component: api
-    app.kubernetes.io/name: maas-api
-    app.kubernetes.io/part-of: models-as-a-service
   name: maas-api-models-auth-policy
   namespace: opendatahub
 spec:

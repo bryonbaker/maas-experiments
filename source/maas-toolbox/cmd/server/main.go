@@ -1,3 +1,12 @@
+/*
+ * This source file includes portions generated or suggested by
+ * artificial intelligence tools and subsequently reviewed,
+ * modified, and validated by human contributors.
+ *
+ * Human authorship, design decisions, and final responsibility
+ * for this code remain with the project contributors.
+ */
+
 // Copyright 2025 Bryon Baker
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -90,6 +99,20 @@ func main() {
 		configMapName = "tier-to-group-mapping"
 	}
 
+	// Read VALIDATE_GROUPS environment variable
+	validateGroups := true // Default to enabled for backward compatibility
+	validateGroupsEnv := os.Getenv("VALIDATE_GROUPS")
+	if validateGroupsEnv == "no" || validateGroupsEnv == "NO" {
+		validateGroups = false
+		log.Printf("Group validation DISABLED (VALIDATE_GROUPS=%s)", validateGroupsEnv)
+	} else {
+		if validateGroupsEnv != "" {
+			log.Printf("Group validation ENABLED (VALIDATE_GROUPS=%s)", validateGroupsEnv)
+		} else {
+			log.Printf("Group validation ENABLED (default)")
+		}
+	}
+
 	// Initialize Kubernetes client
 	k8sClient, err := storage.NewKubernetesClient()
 	if err != nil {
@@ -110,7 +133,7 @@ func main() {
 	}
 
 	// Initialize service
-	tierService := service.NewTierService(tierStorage)
+	tierService := service.NewTierService(tierStorage, validateGroups)
 
 	// Setup router
 	router := api.SetupRouter(tierService)

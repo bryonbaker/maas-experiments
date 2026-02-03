@@ -1,3 +1,12 @@
+/*
+ * This source file includes portions generated or suggested by
+ * artificial intelligence tools and subsequently reviewed,
+ * modified, and validated by human contributors.
+ *
+ * Human authorship, design decisions, and final responsibility
+ * for this code remain with the project contributors.
+ */
+
 // Copyright 2025 Bryon Baker
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,8 +46,9 @@ func createEmptyMockK8sStorage() *storage.K8sTierStorage {
 func setupTestRouter() (*gin.Engine, *TierHandler) {
 	gin.SetMode(gin.TestMode)
 	mockStore := createEmptyMockK8sStorage()
-	tierService := service.NewTierService(mockStore)
-	handler := NewTierHandler(tierService)
+	tierService := service.NewTierService(mockStore, false) // Disable group validation for tests
+	llmServiceService := service.NewLLMInferenceServiceService(tierService)
+	handler := NewTierHandler(tierService, llmServiceService)
 	router := gin.New()
 	v1 := router.Group("/api/v1")
 	{
@@ -178,8 +188,9 @@ func TestCreateTier_WithGroups(t *testing.T) {
 
 func TestCreateTier_VerifyGroupsDefaultedInStorage(t *testing.T) {
 	mockStore := createEmptyMockK8sStorage()
-	tierService := service.NewTierService(mockStore)
-	handler := NewTierHandler(tierService)
+	tierService := service.NewTierService(mockStore, false) // Disable group validation for tests
+	llmServiceService := service.NewLLMInferenceServiceService(tierService)
+	handler := NewTierHandler(tierService, llmServiceService)
 	router := gin.New()
 	gin.SetMode(gin.TestMode)
 	v1 := router.Group("/api/v1")

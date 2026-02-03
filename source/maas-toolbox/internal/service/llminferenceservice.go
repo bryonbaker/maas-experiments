@@ -1,3 +1,12 @@
+/*
+ * This source file includes portions generated or suggested by
+ * artificial intelligence tools and subsequently reviewed,
+ * modified, and validated by human contributors.
+ *
+ * Human authorship, design decisions, and final responsibility
+ * for this code remain with the project contributors.
+ */
+
 // Copyright 2025 Bryon Baker
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

@@ -201,11 +201,27 @@ swag init -g cmd/server/main.go -o docs
 
 The service stores tier configuration in a Kubernetes ConfigMap. The ConfigMap is automatically created in the `maas-api` namespace (configurable via `NAMESPACE` environment variable for non-disruptive testing) with the name `tier-to-group-mapping` (configurable via `CONFIGMAP_NAME` environment variable).
 
+### Group Validation
+
+By default, the service validates that groups exist in the cluster before creating or updating tiers. This validation can be disabled for environments where groups are managed externally (e.g., Keycloak, LDAP) and not stored as Kubernetes Group resources.
+
+**When to disable group validation:**
+- Groups are managed in external identity providers (Keycloak, LDAP, Active Directory)
+- Groups are synced to OpenShift/Kubernetes but not as Group custom resources
+- You want to pre-configure tiers before groups exist in the cluster
+
+**To disable validation:** Set the `VALIDATE_GROUPS` environment variable to `no` in the deployment configuration.
+
+**Note:** User-to-tier lookups (`/api/v1/users/{username}/tiers`) always use runtime group membership regardless of this setting.
+
 ### Environment Variables
 
 - `NAMESPACE`: Kubernetes namespace for the ConfigMap (default: `maas-api`)
 - `CONFIGMAP_NAME`: Name of the ConfigMap (default: `tier-to-group-mapping`)
 - `PORT`: Server port (default: `8080`)
+- `VALIDATE_GROUPS`: Validate that groups exist in the cluster before creating/updating tiers (default: `yes`)
+  - Set to `no` when using external identity providers (e.g., Keycloak, LDAP)
+  - Set to `yes` or leave unset for standard Kubernetes/OpenShift group validation
 
 ### ConfigMap Format
 

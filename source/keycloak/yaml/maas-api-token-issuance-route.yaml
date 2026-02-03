@@ -1,0 +1,46 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: maas-api-token-issuance-route
+  namespace: opendatahub
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: maas-default-gateway
+      namespace: openshift-ingress
+  rules:
+    - backendRefs:
+        - group: ''
+          kind: Service
+          name: maas-api
+          namespace: maas-api
+          port: 8080
+          weight: 100
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              replacePrefixMatch: /v1/tokens
+              type: ReplacePrefixMatch
+      matches:
+        - path:
+            type: PathPrefix
+            value: /maas-api/v1/tokens
+    - backendRefs:
+        - group: ''
+          kind: Service
+          name: maas-api
+          namespace: maas-api
+          port: 8080
+          weight: 100
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              replacePrefixMatch: /v1/api-keys
+              type: ReplacePrefixMatch
+      matches:
+        - path:
+            type: PathPrefix
+            value: /maas-api/v1/api-keys

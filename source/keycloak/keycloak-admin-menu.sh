@@ -1,5 +1,14 @@
 #!/bin/bash
 
+############################################################################
+# This source file was substantially generated using
+# artificial intelligence tools.
+#
+# The generated content has been reviewed and accepted
+# by human contributors, who assume responsibility for
+# its inclusion, correctness, and licensing compliance.
+#############################################################################
+
 #############################################################################
 # Keycloak Admin Menu - MaaS Tenants Realm Manager
 # Menu structure implementation (API calls to be added incrementally)

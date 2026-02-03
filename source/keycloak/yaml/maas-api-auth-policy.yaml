@@ -1,29 +1,17 @@
 apiVersion: kuadrant.io/v1
 kind: AuthPolicy
 metadata:
-  labels:
-    app.kubernetes.io/component: api
-    app.kubernetes.io/name: maas-api
-    app.kubernetes.io/part-of: models-as-a-service
   name: maas-api-auth-policy
   namespace: opendatahub
 spec:
   rules:
     authentication:
-      keycloak-ethan-group:
+      keycloak-maas-tenants:
         credentials:
           authorizationHeader:
             prefix: Bearer
         jwt:
-          issuerUrl: 'https://keycloak.apps.ethan-kk-poc.sandbox3454.opentlc.com/realms/ethan-group'
-        metrics: false
-        priority: 0
-      keycloak-red-hat:
-        credentials:
-          authorizationHeader:
-            prefix: Bearer
-        jwt:
-          issuerUrl: 'https://keycloak.apps.ethan-kk-poc.sandbox3454.opentlc.com/realms/red-hat'
+          issuerUrl: 'https://keycloak.apps.ethan-sno-kk.sandbox3469.opentlc.com/realms/maas-tenants'
         metrics: false
         priority: 0
     response:

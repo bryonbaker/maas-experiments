@@ -1,3 +1,12 @@
+/*
+ * This source file includes portions generated or suggested by
+ * artificial intelligence tools and subsequently reviewed,
+ * modified, and validated by human contributors.
+ *
+ * Human authorship, design decisions, and final responsibility
+ * for this code remain with the project contributors.
+ */
+
 // Copyright 2025 Bryon Baker
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,18 +31,24 @@ import (
 
 // TierService provides business logic for tier management
 type TierService struct {
-	storage *storage.K8sTierStorage
+	storage        *storage.K8sTierStorage
+	validateGroups bool
 }
 
 // NewTierService creates a new TierService instance
-func NewTierService(storage *storage.K8sTierStorage) *TierService {
+func NewTierService(storage *storage.K8sTierStorage, validateGroups bool) *TierService {
 	return &TierService{
-		storage: storage,
+		storage:        storage,
+		validateGroups: validateGroups,
 	}
 }
 
 // validateGroupsExist checks if all groups in the provided list exist in the cluster
 func (s *TierService) validateGroupsExist(groups []string) error {
+	if !s.validateGroups {
+		return nil // Skip validation when disabled
+	}
+
 	for _, group := range groups {
 		exists, err := s.storage.GroupExists(group)
 		if err != nil {
@@ -207,13 +222,15 @@ func (s *TierService) AddGroup(tierName, groupName string) error {
 		return err
 	}
 
-	// Validate group exists in cluster
-	exists, err := s.storage.GroupExists(groupName)
-	if err != nil {
-		return fmt.Errorf("failed to check if group exists: %w", err)
-	}
-	if !exists {
-		return models.ErrGroupNotFoundInCluster
+	// Validate group exists in cluster (if validation is enabled)
+	if s.validateGroups {
+		exists, err := s.storage.GroupExists(groupName)
+		if err != nil {
+			return fmt.Errorf("failed to check if group exists: %w", err)
+		}
+		if !exists {
+			return models.ErrGroupNotFoundInCluster
+		}
 	}
 
 	// Load existing config

@@ -7,6 +7,15 @@
 #   ./test-api.sh [MAAS-TOOLBOX_ROUTE_URL]
 #   BASE_URL= https://maas-toolbox-maas-toolbox.apps.ocp.domain.com ./test-api.sh
 
+############################################################################
+# This source file includes portions generated or suggested by
+# artificial intelligence tools and subsequently reviewed,
+# modified, and validated by human contributors.
+#
+# Human authorship, design decisions, and final responsibility
+# for this code remain with the project contributors.
+############################################################################
+
 # Get base URL from command line argument or environment variable, default to localhost
 if [ -n "$1" ]; then
     BASE_URL="$1"
@@ -424,6 +433,63 @@ run_test "Verify acme-inc-1 after updates" 200 GET "/tiers/acme-inc-1" ""
 run_test "Verify acme-inc-2 after updates" 200 GET "/tiers/acme-inc-2" ""
 
 run_test "Verify acme-inc-3 after updates" 200 GET "/tiers/acme-inc-3" ""
+
+# ============================================
+# TEST 8A: GET TIERS FOR USER
+# ============================================
+print_header "TEST 8A: Get Tiers for User"
+
+# First, add a test user to one of the groups
+if [ "$BASE_URL" != "http://localhost:8080" ]; then
+    # Get the current username
+    CURRENT_USER=$(oc whoami 2>/dev/null)
+    
+    if [ -n "$CURRENT_USER" ]; then
+        echo -e "${GREEN}Testing with current user: $CURRENT_USER${NC}"
+        
+        # Add current user to test groups
+        oc adm groups add-users maas-toolbox-premium-users "$CURRENT_USER" &> /dev/null || true
+        oc adm groups add-users maas-toolbox-enterprise-users "$CURRENT_USER" &> /dev/null || true
+        
+        # Test getting tiers for user (should return tiers based on group membership)
+        run_test "Get tiers for user ($CURRENT_USER)" 200 GET "/users/$CURRENT_USER/tiers" ""
+        
+        # Verify response contains expected tiers
+        echo -n "Verifying user has access to acme-inc-2 tier ... "
+        RESPONSE=$(curl -s -k "${API_BASE}/users/$CURRENT_USER/tiers")
+        if echo "$RESPONSE" | grep -q "acme-inc-2"; then
+            echo -e "${GREEN}PASS${NC}"
+            echo -e "  ${GREEN}✓ User has access to acme-inc-2 via maas-toolbox-premium-users${NC}"
+            PASSED=$((PASSED + 1))
+        else
+            echo -e "${RED}FAIL${NC}"
+            echo -e "  ${RED}✗ User does not have access to acme-inc-2${NC}"
+            echo "  Response: $RESPONSE"
+            FAILED=$((FAILED + 1))
+        fi
+        TOTAL=$((TOTAL + 1))
+        
+        # Test with non-existent user
+        run_test "Get tiers for non-existent user" 404 GET "/users/non-existent-user-12345/tiers" ""
+        
+        # Test with empty username
+        run_test "Get tiers with empty username" 400 GET "/users//tiers" ""
+        
+        # Remove user from groups
+        oc adm groups remove-users maas-toolbox-premium-users "$CURRENT_USER" &> /dev/null || true
+        oc adm groups remove-users maas-toolbox-enterprise-users "$CURRENT_USER" &> /dev/null || true
+    else
+        echo -e "${YELLOW}Warning: Could not determine current user, skipping user tier tests${NC}"
+        echo -e "  ${YELLOW}3 tests skipped${NC}"
+        FAILED=$((FAILED + 3))
+        TOTAL=$((TOTAL + 3))
+    fi
+else
+    echo -e "${YELLOW}Skipping user tier tests for localhost (requires OpenShift cluster)${NC}"
+    echo -e "  ${YELLOW}3 tests skipped${NC}"
+    FAILED=$((FAILED + 3))
+    TOTAL=$((TOTAL + 3))
+fi
 
 # ============================================
 # TEST 9: DELETE TIERS

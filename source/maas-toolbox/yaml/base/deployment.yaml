@@ -34,6 +34,11 @@ spec:
           value: "tier-to-group-mapping"
         - name: PORT
           value: "8080"
+        # VALIDATE_GROUPS controls whether groups are validated against the cluster
+        # Set to "no" when using external identity providers (e.g., Keycloak)
+        # Default: "yes" (validates groups exist in cluster)
+        - name: VALIDATE_GROUPS
+          value: "no"
         # ROUTE_HOST is optional - if not set, Swagger will use the request's Host header
         # To set explicitly, uncomment and set to your route hostname:
         # - name: ROUTE_HOST
