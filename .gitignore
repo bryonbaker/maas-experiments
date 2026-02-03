@@ -12,3 +12,4 @@ launch.json
 # Application-specific files
 **/swagger.yaml
 **/swagger.json
+AGENTS.md
