@@ -265,7 +265,7 @@ if ! curl -s -f -k "${BASE_URL}/health" > /dev/null 2>&1; then
     echo ""
     echo "Usage:"
     echo "  ./test-api.sh [BASE_URL]"
-    echo "  ./test-api.sh https://maas-toolbox-maas-dev.apps.ocp.example.com"
+    echo "  ./test-api.sh https://maas-toolbox-maas-toolbox.apps.ocp.example.com"
     echo "  BASE_URL=https://example.com ./test-api.sh"
     exit 1
 fi

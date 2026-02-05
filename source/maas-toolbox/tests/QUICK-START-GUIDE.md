@@ -6,10 +6,10 @@
 
 ```bash
 # Run against deployed cluster
-./test-api.sh https://maas-toolbox-maas-dev.apps.example.com
+./test-api.sh https://maas-toolbox-maas-toolbox.apps.example.com
 
 # Or set via environment variable
-export BASE_URL=https://maas-toolbox-maas-dev.apps.example.com
+export BASE_URL=https://maas-toolbox-maas-toolbox.apps.example.com
 ./test-api.sh
 
 # Run against localhost (LLM tests will be skipped)
@@ -191,8 +191,8 @@ Please check:
 ```
 
 **Solution:**
-- Verify MaaS Toolbox is deployed: `oc get pods -n maas-dev`
-- Check route exists: `oc get route maas-toolbox -n maas-dev`
+- Verify MaaS Toolbox is deployed: `oc get pods -n maas-toolbox`
+- Check route exists: `oc get route maas-toolbox -n maas-toolbox`
 - Test connectivity: `curl -k https://your-route-url/health`
 
 ---
@@ -293,7 +293,7 @@ oc apply -f facebook-opt-125m-simulated.yaml -n llm
 set -e
 
 # Get the route URL
-ROUTE_URL=$(oc get route maas-toolbox -n maas-dev -o jsonpath='{.spec.host}')
+ROUTE_URL=$(oc get route maas-toolbox -n maas-toolbox -o jsonpath='{.spec.host}')
 
 # Run tests
 ./test-api.sh "https://${ROUTE_URL}"
@@ -419,7 +419,7 @@ If you encounter issues not covered in this guide:
 
 1. Check the main **TEST-HARNESS-UPDATE-SUMMARY.md** for detailed implementation notes
 2. Review the **MAAS-DEPLOYMENT-SUMMARY.md** for deployment guidance
-3. Check MaaS Toolbox logs: `oc logs deployment/maas-toolbox -n maas-dev`
+3. Check MaaS Toolbox logs: `oc logs deployment/maas-toolbox -n maas-toolbox`
 4. Verify API health: `curl -k https://your-route-url/health`
 5. Check Swagger docs: `https://your-route-url/swagger/index.html`
 

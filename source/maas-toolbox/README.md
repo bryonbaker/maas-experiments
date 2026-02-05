@@ -1,374 +1,203 @@
-# MaaS Toolbox API
+# MaaS Toolbox
 
-A REST API service for simplifying configuration of Open Data Hub MaaS (ODH MaaS) via an API. The target use case for this toolbox is for Neo/private/sovereign cloud providers that are building their own Service request Portal in front of ODH MaaS and need a simplified management API. This service provides CRUD operations for managing subscription policies and tiers.
+A simplified REST API for managing Open Data Hub Models-as-a-Service (ODH MaaS) configurations on OpenShift/Kubernetes clusters.
 
-## Features
+## Overview
 
-- **Create Tiers**: Add new tiers with name, description, level, and groups
-- **List Tiers**: Retrieve all tiers or a specific tier by name
-- **Update Tiers**: Modify tier description, level, and groups (name is immutable)
-- **Delete Tiers**: Remove tiers from the configuration
-- **Kubernetes ConfigMap Storage**: Stores tier configuration in Kubernetes ConfigMaps
-- **OpenShift/Kubernetes Native**: Designed to run on OpenShift/Kubernetes clusters
+Configuring and managing ODH MaaS directly through OpenShift and Kubernetes APIs requires complex multi-step workflows involving ConfigMaps, custom resources, YAML parsing, and coordination across multiple API endpoints. **MaaS Toolbox provides a simplified, purpose-built REST API that abstracts this complexity**, making it easy to integrate MaaS management into service portals, automation tools, and administrative workflows.
 
-## Backlog
+### Why MaaS Toolbox?
 
-1. Policy cofiguration
+**Without MaaS Toolbox**, managing tiers, groups, and rate limits requires:
+- Direct manipulation of Kubernetes ConfigMaps with YAML parsing
+- Multi-step GET-MODIFY-PUT workflows for every change
+- Manual coordination between tier configuration and rate limit policies
+- Complex jq/yq scripting to extract and update nested data structures
+- Deep knowledge of multiple Kubernetes/OpenShift APIs
+
+See the [OpenShift MaaS API Guide](./OPENSHIFT-MAAS-API-GUIDE.md) for detailed examples of the complexity involved in direct API integration.
+
+**With MaaS Toolbox**, you get:
+- Simple REST API with intuitive CRUD operations
+- Single-step operations for common management tasks
+- Automatic validation and consistency checks
+- Clean JSON request/response format
+- Built-in error handling and meaningful error messages
+
+## Target Use Case
+
+MaaS Toolbox is designed for Neo/private/sovereign cloud providers building their own **Service Request Portals** on top of ODH MaaS. If you're creating a customer-facing portal or automation system that needs to provision and manage AI model access, MaaS Toolbox provides the management API layer you need.
+
+## Key Capabilities
+
+- **Tier Management**: Create, update, list, and delete subscription tiers with group-based access control
+- **Group Association**: Manage which Kubernetes/OpenShift groups have access to each tier
+- **User Queries**: Lookup which tiers a user can access based on their group memberships
+- **Rate Limit Management**: Configure request and token-based rate limits per tier
+- **Model Assignment**: Associate LLM inference services with specific tiers
+- **Native Storage**: Stores configuration in Kubernetes ConfigMaps for GitOps compatibility
 
 ## Architecture
 
-The service is built with a clean architecture:
+MaaS Toolbox follows a clean, layered architecture:
 
-- **Models**: Data structures for Tier and TierConfig
-- **Storage**: Kubernetes ConfigMap-based persistence
-- **Service Layer**: Business logic for tier management
-- **API Layer**: REST API handlers using Gin framework
+```
+┌─────────────────────────────────────────┐
+│         REST API (Gin)                  │
+│  /api/v1/tiers, /groups, /users        │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│         Service Layer                   │
+│  Business logic & validation            │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│    Storage Layer (Kubernetes)           │
+│  ConfigMaps, CRDs, Group API            │
+└─────────────────────────────────────────┘
+```
 
-## Installation
+### Components
+
+- **Models**: Data structures for Tier, RateLimitPolicy, TokenRateLimitPolicy
+- **Storage**: Kubernetes ConfigMap and CRD-based persistence
+- **Service Layer**: Business logic, validation, and group resolution
+- **API Layer**: REST endpoints with OpenAPI/Swagger documentation
+
+## Quick Start
 
 ### Prerequisites
 
-- OpenShift/Kubernetes cluster access
+- OpenShift or Kubernetes cluster
 - `oc` or `kubectl` CLI tool
-- Container registry access (e.g., quay.io)
-- Podman or Docker for building images
+- Cluster admin permissions for RBAC setup
 
-### Building the Container Image
-
-```bash
-make build
-```
-
-This builds the container image using podman.
-
-### Pushing to Registry
+### Deploy to Your Cluster
 
 ```bash
-make push
+# Deploy using Kustomize
+oc apply -k yaml/base/
+
+# Verify deployment
+oc get pods -n maas-toolbox
 ```
-
-This tags and pushes the image to `quay.io/bryonbaker/maas-toolbox:latest`.
-
-### Deployment
-
-See the [yaml/README.md](yaml/README.md) for detailed deployment instructions.
-
-```bash
-oc apply -k yaml/
-```
-
-## API Endpoints
-
-Tier management endpoints are under `/api/v1/tiers`. Group query endpoints are under `/api/v1/groups`. User query endpoints are under `/api/v1/users`.
 
 ### Get the API URL
 
-After deployment, get the route URL:
-
 ```bash
-ROUTE_URL=$(oc get route maas-toolbox -n maas-dev -o jsonpath='{.spec.host}')
-echo "API URL: https://$ROUTE_URL"
+ROUTE_URL=$(oc get route maas-toolbox -n maas-toolbox -o jsonpath='{.spec.host}')
+echo "MaaS Toolbox API: https://$ROUTE_URL"
 ```
 
-### Create a Tier
+### Create Your First Tier
 
 ```bash
 curl -X POST https://$ROUTE_URL/api/v1/tiers \
   -H "Content-Type: application/json" \
   -d '{
     "name": "free",
-    "description": "Free tier for basic users",
+    "description": "Free tier for authenticated users",
     "level": 1,
     "groups": ["system:authenticated"]
   }'
 ```
 
-### List All Tiers
+### Explore the API
 
-```bash
-curl https://$ROUTE_URL/api/v1/tiers
-```
-
-### Get a Specific Tier
-
-```bash
-curl https://$ROUTE_URL/api/v1/tiers/free
-```
-
-### Update a Tier
-
-```bash
-curl -X PUT https://$ROUTE_URL/api/v1/tiers/free \
-  -H "Content-Type: application/json" \
-  -d '{
-    "description": "Updated free tier description",
-    "level": 2,
-    "groups": ["system:authenticated", "free-users"]
-  }'
-```
-
-Note: The `name` field cannot be changed. Only `description`, `level`, and `groups` can be updated.
-
-### Delete a Tier
-
-```bash
-curl -X DELETE https://$ROUTE_URL/api/v1/tiers/free
-```
-
-### Add a Group to a Tier
-
-```bash
-curl -X POST https://$ROUTE_URL/api/v1/tiers/free/groups \
-  -H "Content-Type: application/json" \
-  -d '{"group": "new-group"}'
-```
-
-### Remove a Group from a Tier
-
-```bash
-curl -X DELETE https://$ROUTE_URL/api/v1/tiers/free/groups/system:authenticated
-```
-
-### Get Tiers by Group
-
-Retrieve all tiers that contain a specific Kubernetes group:
-
-```bash
-curl https://$ROUTE_URL/api/v1/groups/premium-users/tiers
-```
-
-This endpoint returns an array of all tiers that include the specified group. If no tiers contain the group, an empty array is returned.
-
-### Get Tiers for User
-
-Retrieve all tiers that a user has access to based on their group memberships:
-
-```bash
-curl https://$ROUTE_URL/api/v1/users/bryonbaker/tiers
-```
-
-This endpoint returns an array of tiers the user can access, sorted by level (priority). Each tier includes:
-- Tier name, description, and level (priority)
-- List of groups the user belongs to that grant access to this tier
-
-Example response:
-```json
-[
-  {
-    "name": "standard",
-    "description": "Standard tier for authenticated users",
-    "level": 5,
-    "groups": ["system:authenticated"]
-  },
-  {
-    "name": "premium",
-    "description": "Premium tier with high priority",
-    "level": 10,
-    "groups": ["cluster-admins", "premium-users"]
-  }
-]
-```
-
-If the user is not found in the cluster, a 404 error is returned.
-
-### Health Check
-
-```bash
-curl https://$ROUTE_URL/health
-```
-
-### Swagger Documentation
-
-The API includes interactive Swagger documentation. Access it at:
-
+Interactive Swagger documentation is available at:
 ```
 https://$ROUTE_URL/swagger/index.html
 ```
 
-The Swagger UI provides:
-- Interactive API documentation
-- Try-it-out functionality for all endpoints
-- Request/response examples
-- Schema definitions
+## Documentation
 
-To regenerate Swagger documentation after making changes to API annotations:
-
-```bash
-swag init -g cmd/server/main.go -o docs
-```
+- **[Interface Documentation](./INTERFACE_DOCUMENTATION.md)** - Complete API reference with all endpoints, parameters, and examples
+- **[OpenShift MaaS API Guide](./OPENSHIFT-MAAS-API-GUIDE.md)** - Detailed guide showing the complex direct API workflows that MaaS Toolbox simplifies
+- **[Examples](./EXAMPLES.md)** - Common use cases and workflow examples
+- **[Deployment Guide](./yaml/README.md)** - Detailed deployment and configuration instructions
 
 ## Configuration
 
-The service stores tier configuration in a Kubernetes ConfigMap. The ConfigMap is automatically created in the `maas-api` namespace (configurable via `NAMESPACE` environment variable for non-disruptive testing) with the name `tier-to-group-mapping` (configurable via `CONFIGMAP_NAME` environment variable).
-
-### Group Validation
-
-By default, the service validates that groups exist in the cluster before creating or updating tiers. This validation can be disabled for environments where groups are managed externally (e.g., Keycloak, LDAP) and not stored as Kubernetes Group resources.
-
-**When to disable group validation:**
-- Groups are managed in external identity providers (Keycloak, LDAP, Active Directory)
-- Groups are synced to OpenShift/Kubernetes but not as Group custom resources
-- You want to pre-configure tiers before groups exist in the cluster
-
-**To disable validation:** Set the `VALIDATE_GROUPS` environment variable to `no` in the deployment configuration.
-
-**Note:** User-to-tier lookups (`/api/v1/users/{username}/tiers`) always use runtime group membership regardless of this setting.
+MaaS Toolbox stores tier configuration in a Kubernetes ConfigMap named `tier-to-group-mapping` in the `maas-api` namespace. This follows the [official ODH MaaS tier configuration format](https://opendatahub-io.github.io/models-as-a-service/latest/configuration-and-management/tier-overview/).
 
 ### Environment Variables
 
-- `NAMESPACE`: Kubernetes namespace for the ConfigMap (default: `maas-api`)
-- `CONFIGMAP_NAME`: Name of the ConfigMap (default: `tier-to-group-mapping`)
-- `PORT`: Server port (default: `8080`)
-- `VALIDATE_GROUPS`: Validate that groups exist in the cluster before creating/updating tiers (default: `yes`)
-  - Set to `no` when using external identity providers (e.g., Keycloak, LDAP)
-  - Set to `yes` or leave unset for standard Kubernetes/OpenShift group validation
-
-### ConfigMap Format
-
-Official documentation for Tier Configuration can be found [here](https://opendatahub-io.github.io/models-as-a-service/latest/configuration-and-management/tier-overview/).
-
-The ConfigMap stores tiers in the following format:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: tier-to-group-mapping
-  namespace: maas-api
-data:
-  tiers: |
-    - name: free
-      description: Free tier for basic users
-      level: 1
-      groups:
-      - system:authenticated
-    - name: premium
-      description: Premium tier
-      level: 10
-      groups:
-      - premium-users
-```
-
-## Business Rules
-
-1. **Tier Name**: Set at creation time and cannot be changed
-2. **Tier Uniqueness**: Tier names must be unique
-3. **Required Fields**: Name and description are required
-4. **Level**: Must be a non-negative integer
-5. **Groups**: Array of Kubernetes group names
-
-## Error Responses
-
-All errors follow this format:
-
-```json
-{
-  "error": "error message"
-}
-```
-
-HTTP Status Codes:
-- `200 OK`: Success
-- `201 Created`: Tier created successfully
-- `204 No Content`: Tier deleted successfully
-- `400 Bad Request`: Validation error or invalid request
-- `404 Not Found`: Tier not found
-- `409 Conflict`: Tier already exists
-- `500 Internal Server Error`: Server error
-
-## Future Enhancements
-
-- Authentication and authorization
-- Rate limiting
-- Enhanced logging and metrics
-- Multi-namespace support
-- Subscription policy configuration. [Documentation](https://opendatahub-io.github.io/models-as-a-service/latest/configuration-and-management/tier-configuration/)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NAMESPACE` | `maas-api` | Kubernetes namespace for ConfigMap storage |
+| `CONFIGMAP_NAME` | `tier-to-group-mapping` | Name of the tier configuration ConfigMap |
+| `PORT` | `8080` | Server port |
+| `VALIDATE_GROUPS` | `yes` | Validate groups exist before creating/updating tiers. Set to `no` when using external identity providers (Keycloak, LDAP) |
 
 ## Development
+
+### Building
+
+```bash
+# Build container image
+make build
+
+# Run tests
+make test
+
+# Run tests with coverage
+make test-coverage
+```
 
 ### Project Structure
 
 ```
 maas-toolbox/
-├── cmd/
-│   └── server/
-│       └── main.go          # Application entry point
+├── cmd/server/          # Application entry point
 ├── internal/
-│   ├── api/
-│   │   ├── handlers.go      # HTTP request handlers
-│   │   └── router.go        # Route configuration
-│   ├── models/
-│   │   ├── tier.go          # Data models
-│   │   └── errors.go        # Error definitions
-│   ├── storage/
-│   │   ├── k8s.go           # Kubernetes ConfigMap storage
-│   │   └── k8s_client.go    # Kubernetes client initialization
-│   └── service/
-│       └── tier.go          # Business logic
-├── yaml/                    # Kubernetes/OpenShift deployment files
-├── tests/
-│   └── test-api.sh          # API integration test script
-├── go.mod
-├── go.sum
-├── README.md
-└── Makefile
+│   ├── api/            # HTTP handlers and routing
+│   ├── models/         # Data models and validation
+│   ├── service/        # Business logic
+│   └── storage/        # Kubernetes client and storage
+├── yaml/               # Deployment manifests
+├── tests/              # Integration test scripts
+└── docs/               # Generated Swagger docs
 ```
 
-### Building
-
-Build the container image:
+### API Integration Tests
 
 ```bash
-make build
+# Test all endpoints against a deployed cluster
+./tests/test-api.sh https://maas-toolbox-maas-toolbox.apps.your-cluster.com
 ```
 
-### Running Tests
+## Roadmap
 
-#### Unit Tests
+- [x] Tier management (CRUD operations)
+- [x] Group-based access control
+- [x] User tier lookup
+- [x] Swagger/OpenAPI documentation
+- [x] Rate limit policy configuration
+- [x] Token rate limit policy configuration
+- [ ] Referential-integrity health checks
+- [ ] Authentication and authorization
+- [ ] Enhanced logging and metrics
+- [ ] Multi-namespace support
 
-```bash
-make test
-```
+## Support & Contributing
 
-Or with coverage:
-
-```bash
-make test-coverage
-```
-
-#### API Integration Tests
-
-A comprehensive test script is provided to test all API endpoints against a deployed cluster:
-
-```bash
-# Test against deployed cluster
-./tests/test-api.sh https://maas-toolbox-maas-dev.apps.$BASE_DOMAIN
-```
-
-The test script will:
-- Test all CRUD operations (Create, Read, Update, Delete)
-- Test group management (Add/Remove groups)
-- Test getting tiers by group
-- Test error cases (duplicate tiers, invalid data, not found, etc.)
-- Test edge cases (empty groups, validation, etc.)
-- Display colored output with pass/fail status
-- Provide a summary at the end
-
-The script uses tier names `acme-inc-1`, `acme-inc-2`, and `acme-inc-3` for testing.
+For issues, questions, or contributions, please refer to the main repository documentation.
 
 ## License
 
-Copyright 2025 Bryon Baker
+This source file includes portions generated or suggested by  artificial intelligence tools and subsequently reviewed,  modified, and validated by human contributors.
+ 
+Human authorship, design decisions, and final responsibility for this code remain with the project contributors.
 
-Licensed under the Apache License, Version 2.0 (the "License");  
-you may not use this file except in compliance with the License.  
-You may obtain a copy of the License at  
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0  
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software  
-distributed under the License is distributed on an "AS IS" BASIS,  
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  
-See the License for the specific language governing permissions and  
-limitations under the License.  
-
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

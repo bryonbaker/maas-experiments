@@ -7,12 +7,12 @@ This directory contains the Kubernetes/OpenShift deployment resources for the Ma
 - OpenShift cluster access
 - `oc` CLI tool installed and configured
 - Container registry access
-- RBAC permissions to create resources in the `maas-dev` namespace
+- RBAC permissions to create resources in the `maas-toolbox` namespace
 
 ## Files
 
 - `kustomization.yaml` - Kustomize configuration for managing all resources
-- `namespace.yaml` - Creates the `maas-dev` namespace
+- `namespace.yaml` - Creates the `maas-toolbox` namespace
 - `serviceaccount.yaml` - Creates the service account for the application
 - `rbac.yaml` - Defines Role and RoleBinding for ConfigMap access
 - `deployment.yaml` - Defines the pod specification (uses service account token automatically)
@@ -114,16 +114,16 @@ oc apply -f yaml/
 
 ```bash
 # Check pods
-oc get pods -n maas-dev
+oc get pods -n maas-toolbox
 
 # Check service
-oc get svc -n maas-dev
+oc get svc -n maas-toolbox
 
 # Check route
-oc get route -n maas-dev
+oc get route -n maas-toolbox
 
 # View logs
-oc logs -f deployment/maas-toolbox -n maas-dev
+oc logs -f deployment/maas-toolbox -n maas-toolbox
 ```
 
 ### 8. Test the API
@@ -131,7 +131,7 @@ oc logs -f deployment/maas-toolbox -n maas-dev
 Get the route URL:
 
 ```bash
-ROUTE_URL=$(oc get route maas-toolbox -n maas-dev -o jsonpath='{.spec.host}')
+ROUTE_URL=$(oc get route maas-toolbox -n maas-toolbox -o jsonpath='{.spec.host}')
 echo "API URL: https://$ROUTE_URL"
 ```
 
@@ -147,7 +147,7 @@ The deployment uses the following environment variables:
 
 | Variable | Source | Description |
 |----------|--------|-------------|
-| `NAMESPACE` | Field ref | Current namespace (maas-dev) |
+| `NAMESPACE` | Field ref | Current namespace (maas-toolbox) |
 | `CONFIGMAP_NAME` | Hardcoded | ConfigMap name (tier-to-group-mapping) |
 | `PORT` | Hardcoded | Server port (8080) |
 
@@ -160,13 +160,13 @@ The application will automatically:
 - Read from the ConfigMap on startup
 - Update the ConfigMap when tiers are modified
 
-The ConfigMap will be created in the `maas-dev` namespace with the name `tier-to-group-mapping`.
+The ConfigMap will be created in the `maas-toolbox` namespace with the name `tier-to-group-mapping`.
 
 ## RBAC Requirements
 
 The service account used by the deployment needs permissions to manage ConfigMaps. These are defined in `rbac.yaml`:
 
-- **Role**: Grants `get`, `list`, `watch`, `create`, `update`, and `patch` permissions on ConfigMaps in the `maas-dev` namespace
+- **Role**: Grants `get`, `list`, `watch`, `create`, `update`, and `patch` permissions on ConfigMaps in the `maas-toolbox` namespace
 - **RoleBinding**: Binds the `maas-toolbox` service account to the `tier-admin-role`
 
 The RBAC resources are automatically applied when you run:
@@ -187,16 +187,16 @@ oc apply -f yaml/
 
 ```bash
 # Check pod status
-oc describe pod <pod-name> -n maas-dev
+oc describe pod <pod-name> -n maas-toolbox
 
 # Check logs
-oc logs <pod-name> -n maas-dev
+oc logs <pod-name> -n maas-toolbox
 ```
 
 ### Cannot connect to Kubernetes API
 
 - Verify the service account has proper RBAC permissions (see RBAC Requirements section)
-- Check that the service account token is mounted: `oc exec <pod-name> -n maas-dev -- ls -la /var/run/secrets/kubernetes.io/serviceaccount/`
+- Check that the service account token is mounted: `oc exec <pod-name> -n maas-toolbox -- ls -la /var/run/secrets/kubernetes.io/serviceaccount/`
 - Verify the pod is running in-cluster
 - Check network policies if applicable
 
