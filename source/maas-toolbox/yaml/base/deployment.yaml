@@ -43,6 +43,16 @@ spec:
         # To set explicitly, uncomment and set to your route hostname:
         # - name: ROUTE_HOST
         #   value: "maas-toolbox-maas-toolbox.apps.ocp.example.com"
+        # TokenRateLimitPolicy configuration
+        - name: TOKEN_RATELIMIT_NAMESPACE
+          value: "openshift-ingress"
+        - name: TOKEN_RATELIMIT_POLICY_NAME
+          value: "gateway-token-rate-limits"
+        # RateLimitPolicy configuration
+        - name: RATELIMIT_NAMESPACE
+          value: "openshift-ingress"
+        - name: RATELIMIT_POLICY_NAME
+          value: "gateway-rate-limits"
         args:
         - "--port=8080"
         resources:

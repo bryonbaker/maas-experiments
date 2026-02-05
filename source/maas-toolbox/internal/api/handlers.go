@@ -594,3 +594,373 @@ func (h *TierHandler) GetTiersForUser(c *gin.Context) {
 	log.Printf("GET /api/v1/users/%s/tiers - Returning %d tiers", username, len(tiers))
 	c.JSON(http.StatusOK, tiers)
 }
+
+// TokenRateLimitHandler handles HTTP requests for token rate limit management
+type TokenRateLimitHandler struct {
+	service *service.TokenRateLimitService
+}
+
+// NewTokenRateLimitHandler creates a new TokenRateLimitHandler instance
+func NewTokenRateLimitHandler(service *service.TokenRateLimitService) *TokenRateLimitHandler {
+	return &TokenRateLimitHandler{
+		service: service,
+	}
+}
+
+// CreateTokenRateLimit handles POST /api/v1/tokenratelimits
+// @Summary      Create a new token rate limit
+// @Description  Create a new token rate limit definition in the TokenRateLimitPolicy CRD. The limit tracks token consumption from LLM model responses.
+// @Tags         tokenratelimits
+// @Accept       json
+// @Produce      json
+// @Param        tokenratelimit  body      models.TokenRateLimit  true  "Token rate limit object"
+// @Success      201   {object}  models.TokenRateLimit  "Token rate limit created successfully"
+// @Failure      400   {object}  ErrorResponse  "Bad request - validation error"
+// @Failure      409   {object}  ErrorResponse  "Conflict - token rate limit already exists"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /tokenratelimits [post]
+func (h *TokenRateLimitHandler) CreateTokenRateLimit(c *gin.Context) {
+	var trl models.TokenRateLimit
+	if err := c.ShouldBindJSON(&trl); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("POST /api/v1/tokenratelimits - Creating token rate limit: %s", trl.Name)
+
+	if err := h.service.CreateTokenRateLimit(&trl); err != nil {
+		log.Printf("POST /api/v1/tokenratelimits - Error: %v", err)
+		if errors.Is(err, models.ErrTokenRateLimitAlreadyExists) {
+			c.JSON(http.StatusConflict, ErrorResponse{Error: "token rate limit already exists"})
+		} else if errors.Is(err, models.ErrTokenRateLimitNameRequired) ||
+			errors.Is(err, models.ErrTokenRateLimitWindowRequired) ||
+			errors.Is(err, models.ErrTokenRateLimitTierRequired) ||
+			errors.Is(err, models.ErrTokenRateLimitInvalid) ||
+			errors.Is(err, models.ErrTokenRateLimitWindowInvalid) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	log.Printf("POST /api/v1/tokenratelimits - Successfully created: %s", trl.Name)
+	c.JSON(http.StatusCreated, trl)
+}
+
+// GetTokenRateLimits handles GET /api/v1/tokenratelimits
+// @Summary      List all token rate limits
+// @Description  Retrieve all token rate limit definitions from the TokenRateLimitPolicy CRD
+// @Tags         tokenratelimits
+// @Produce      json
+// @Success      200  {array}   models.TokenRateLimit  "List of token rate limits"
+// @Failure      500  {object}  ErrorResponse  "Internal server error"
+// @Router       /tokenratelimits [get]
+func (h *TokenRateLimitHandler) GetTokenRateLimits(c *gin.Context) {
+	log.Printf("GET /api/v1/tokenratelimits - Request received from %s", c.ClientIP())
+
+	tokenRateLimits, err := h.service.GetAllTokenRateLimits()
+	if err != nil {
+		log.Printf("GET /api/v1/tokenratelimits - Error: %v", err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("GET /api/v1/tokenratelimits - Returning %d token rate limits", len(tokenRateLimits))
+	c.JSON(http.StatusOK, tokenRateLimits)
+}
+
+// GetTokenRateLimit handles GET /api/v1/tokenratelimits/:name
+// @Summary      Get a token rate limit by name
+// @Description  Retrieve a specific token rate limit definition from the TokenRateLimitPolicy CRD
+// @Tags         tokenratelimits
+// @Produce      json
+// @Param        name  path      string  true  "Token rate limit name"
+// @Success      200   {object}  models.TokenRateLimit  "Token rate limit details"
+// @Failure      404   {object}  ErrorResponse  "Token rate limit not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /tokenratelimits/{name} [get]
+func (h *TokenRateLimitHandler) GetTokenRateLimit(c *gin.Context) {
+	name := c.Param("name")
+	
+	log.Printf("GET /api/v1/tokenratelimits/%s - Request received from %s", name, c.ClientIP())
+
+	tokenRateLimit, err := h.service.GetTokenRateLimit(name)
+	if err != nil {
+		log.Printf("GET /api/v1/tokenratelimits/%s - Error: %v", name, err)
+		if errors.Is(err, models.ErrTokenRateLimitNotFound) {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "token rate limit not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	log.Printf("GET /api/v1/tokenratelimits/%s - Found token rate limit", name)
+	c.JSON(http.StatusOK, tokenRateLimit)
+}
+
+// UpdateTokenRateLimit handles PUT /api/v1/tokenratelimits/:name
+// @Summary      Update a token rate limit
+// @Description  Update an existing token rate limit definition in the TokenRateLimitPolicy CRD. Only limit and window can be updated; name and tier are immutable.
+// @Tags         tokenratelimits
+// @Accept       json
+// @Produce      json
+// @Param        name            path      string                        true  "Token rate limit name"
+// @Param        tokenratelimit  body      models.TokenRateLimitUpdate  true  "Token rate limit update object (only limit and window)"
+// @Success      200   {object}  models.TokenRateLimit  "Token rate limit updated successfully"
+// @Failure      400   {object}  ErrorResponse  "Bad request - validation error"
+// @Failure      404   {object}  ErrorResponse  "Token rate limit not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /tokenratelimits/{name} [put]
+func (h *TokenRateLimitHandler) UpdateTokenRateLimit(c *gin.Context) {
+	name := c.Param("name")
+	
+	var update models.TokenRateLimitUpdate
+	if err := c.ShouldBindJSON(&update); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("PUT /api/v1/tokenratelimits/%s - Updating token rate limit (limit: %d, window: %s)", name, update.Limit, update.Window)
+
+	if err := h.service.UpdateTokenRateLimit(name, &update); err != nil {
+		log.Printf("PUT /api/v1/tokenratelimits/%s - Error: %v", name, err)
+		if errors.Is(err, models.ErrTokenRateLimitNotFound) {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "token rate limit not found"})
+		} else if errors.Is(err, models.ErrTokenRateLimitNameRequired) ||
+			errors.Is(err, models.ErrTokenRateLimitWindowRequired) ||
+			errors.Is(err, models.ErrTokenRateLimitInvalid) ||
+			errors.Is(err, models.ErrTokenRateLimitWindowInvalid) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	// Get the updated token rate limit to return in response
+	updated, err := h.service.GetTokenRateLimit(name)
+	if err != nil {
+		log.Printf("PUT /api/v1/tokenratelimits/%s - Error retrieving updated limit: %v", name, err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("PUT /api/v1/tokenratelimits/%s - Successfully updated", name)
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteTokenRateLimit handles DELETE /api/v1/tokenratelimits/:name
+// @Summary      Delete a token rate limit
+// @Description  Delete a token rate limit definition from the TokenRateLimitPolicy CRD
+// @Tags         tokenratelimits
+// @Produce      json
+// @Param        name  path  string  true  "Token rate limit name"
+// @Success      204   "Token rate limit deleted successfully"
+// @Failure      404   {object}  ErrorResponse  "Token rate limit not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /tokenratelimits/{name} [delete]
+func (h *TokenRateLimitHandler) DeleteTokenRateLimit(c *gin.Context) {
+	name := c.Param("name")
+	
+	log.Printf("DELETE /api/v1/tokenratelimits/%s - Deleting token rate limit", name)
+
+	if err := h.service.DeleteTokenRateLimit(name); err != nil {
+		log.Printf("DELETE /api/v1/tokenratelimits/%s - Error: %v", name, err)
+		if errors.Is(err, models.ErrTokenRateLimitNotFound) {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "token rate limit not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	log.Printf("DELETE /api/v1/tokenratelimits/%s - Successfully deleted", name)
+	c.Status(http.StatusNoContent)
+}
+
+// RateLimitHandler handles HTTP requests for rate limit management
+type RateLimitHandler struct {
+	service *service.RateLimitService
+}
+
+// NewRateLimitHandler creates a new RateLimitHandler instance
+func NewRateLimitHandler(service *service.RateLimitService) *RateLimitHandler {
+	return &RateLimitHandler{
+		service: service,
+	}
+}
+
+// CreateRateLimit handles POST /api/v1/ratelimits
+// @Summary      Create a new rate limit
+// @Description  Create a new rate limit definition in the RateLimitPolicy CRD. The limit tracks request counts per time window.
+// @Tags         ratelimits
+// @Accept       json
+// @Produce      json
+// @Param        ratelimit  body      models.RateLimit  true  "Rate limit object"
+// @Success      201   {object}  models.RateLimit  "Rate limit created successfully"
+// @Failure      400   {object}  ErrorResponse  "Bad request - validation error"
+// @Failure      409   {object}  ErrorResponse  "Conflict - rate limit already exists"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /ratelimits [post]
+func (h *RateLimitHandler) CreateRateLimit(c *gin.Context) {
+	var rl models.RateLimit
+	if err := c.ShouldBindJSON(&rl); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("POST /api/v1/ratelimits - Creating rate limit: %s", rl.Name)
+
+	if err := h.service.CreateRateLimit(&rl); err != nil {
+		log.Printf("POST /api/v1/ratelimits - Error: %v", err)
+		if errors.Is(err, models.ErrRateLimitAlreadyExists) {
+			c.JSON(http.StatusConflict, ErrorResponse{Error: "rate limit already exists"})
+		} else if errors.Is(err, models.ErrRateLimitNameRequired) ||
+			errors.Is(err, models.ErrRateLimitWindowRequired) ||
+			errors.Is(err, models.ErrRateLimitTierRequired) ||
+			errors.Is(err, models.ErrRateLimitInvalid) ||
+			errors.Is(err, models.ErrRateLimitWindowInvalid) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	log.Printf("POST /api/v1/ratelimits - Successfully created: %s", rl.Name)
+	c.JSON(http.StatusCreated, rl)
+}
+
+// GetRateLimits handles GET /api/v1/ratelimits
+// @Summary      List all rate limits
+// @Description  Retrieve all rate limit definitions from the RateLimitPolicy CRD
+// @Tags         ratelimits
+// @Produce      json
+// @Success      200  {array}   models.RateLimit  "List of rate limits"
+// @Failure      500  {object}  ErrorResponse  "Internal server error"
+// @Router       /ratelimits [get]
+func (h *RateLimitHandler) GetRateLimits(c *gin.Context) {
+	log.Printf("GET /api/v1/ratelimits - Request received from %s", c.ClientIP())
+
+	rateLimits, err := h.service.GetAllRateLimits()
+	if err != nil {
+		log.Printf("GET /api/v1/ratelimits - Error: %v", err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("GET /api/v1/ratelimits - Returning %d rate limits", len(rateLimits))
+	c.JSON(http.StatusOK, rateLimits)
+}
+
+// GetRateLimit handles GET /api/v1/ratelimits/:name
+// @Summary      Get a rate limit by name
+// @Description  Retrieve a specific rate limit definition from the RateLimitPolicy CRD
+// @Tags         ratelimits
+// @Produce      json
+// @Param        name  path      string  true  "Rate limit name"
+// @Success      200   {object}  models.RateLimit  "Rate limit details"
+// @Failure      404   {object}  ErrorResponse  "Rate limit not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /ratelimits/{name} [get]
+func (h *RateLimitHandler) GetRateLimit(c *gin.Context) {
+	name := c.Param("name")
+	
+	log.Printf("GET /api/v1/ratelimits/%s - Request received from %s", name, c.ClientIP())
+
+	rateLimit, err := h.service.GetRateLimit(name)
+	if err != nil {
+		log.Printf("GET /api/v1/ratelimits/%s - Error: %v", name, err)
+		if errors.Is(err, models.ErrRateLimitNotFound) {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "rate limit not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	log.Printf("GET /api/v1/ratelimits/%s - Found rate limit", name)
+	c.JSON(http.StatusOK, rateLimit)
+}
+
+// UpdateRateLimit handles PUT /api/v1/ratelimits/:name
+// @Summary      Update a rate limit
+// @Description  Update an existing rate limit definition in the RateLimitPolicy CRD. Only limit and window can be updated; name and tier are immutable.
+// @Tags         ratelimits
+// @Accept       json
+// @Produce      json
+// @Param        name       path      string                   true  "Rate limit name"
+// @Param        ratelimit  body      models.RateLimitUpdate  true  "Rate limit update object (only limit and window)"
+// @Success      200   {object}  models.RateLimit  "Rate limit updated successfully"
+// @Failure      400   {object}  ErrorResponse  "Bad request - validation error"
+// @Failure      404   {object}  ErrorResponse  "Rate limit not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /ratelimits/{name} [put]
+func (h *RateLimitHandler) UpdateRateLimit(c *gin.Context) {
+	name := c.Param("name")
+	
+	var update models.RateLimitUpdate
+	if err := c.ShouldBindJSON(&update); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("PUT /api/v1/ratelimits/%s - Updating rate limit (limit: %d, window: %s)", name, update.Limit, update.Window)
+
+	if err := h.service.UpdateRateLimit(name, &update); err != nil {
+		log.Printf("PUT /api/v1/ratelimits/%s - Error: %v", name, err)
+		if errors.Is(err, models.ErrRateLimitNotFound) {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "rate limit not found"})
+		} else if errors.Is(err, models.ErrRateLimitNameRequired) ||
+			errors.Is(err, models.ErrRateLimitWindowRequired) ||
+			errors.Is(err, models.ErrRateLimitInvalid) ||
+			errors.Is(err, models.ErrRateLimitWindowInvalid) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	// Get the updated rate limit to return in response
+	updated, err := h.service.GetRateLimit(name)
+	if err != nil {
+		log.Printf("PUT /api/v1/ratelimits/%s - Error retrieving updated limit: %v", name, err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	log.Printf("PUT /api/v1/ratelimits/%s - Successfully updated", name)
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteRateLimit handles DELETE /api/v1/ratelimits/:name
+// @Summary      Delete a rate limit
+// @Description  Delete a rate limit definition from the RateLimitPolicy CRD
+// @Tags         ratelimits
+// @Produce      json
+// @Param        name  path  string  true  "Rate limit name"
+// @Success      204   "Rate limit deleted successfully"
+// @Failure      404   {object}  ErrorResponse  "Rate limit not found"
+// @Failure      500   {object}  ErrorResponse  "Internal server error"
+// @Router       /ratelimits/{name} [delete]
+func (h *RateLimitHandler) DeleteRateLimit(c *gin.Context) {
+	name := c.Param("name")
+	
+	log.Printf("DELETE /api/v1/ratelimits/%s - Deleting rate limit", name)
+
+	if err := h.service.DeleteRateLimit(name); err != nil {
+		log.Printf("DELETE /api/v1/ratelimits/%s - Error: %v", name, err)
+		if errors.Is(err, models.ErrRateLimitNotFound) {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "rate limit not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+
+	log.Printf("DELETE /api/v1/ratelimits/%s - Successfully deleted", name)
+	c.Status(http.StatusNoContent)
+}

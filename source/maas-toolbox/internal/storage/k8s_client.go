@@ -71,3 +71,27 @@ func NewKubernetesClient() (kubernetes.Interface, error) {
 
 	return clientset, nil
 }
+
+// GetKubernetesConfig returns a Kubernetes REST config
+// This can be used to create additional clients like dynamic.Interface
+func GetKubernetesConfig() (*rest.Config, error) {
+	var config *rest.Config
+	var err error
+
+	// Try in-cluster config first (when running in pod)
+	config, err = rest.InClusterConfig()
+	if err != nil {
+		// Fall back to kubeconfig file (for local development)
+		kubeconfig := os.Getenv("KUBECONFIG")
+		if kubeconfig == "" {
+			kubeconfig = os.Getenv("HOME") + "/.kube/config"
+		}
+
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Kubernetes config: %w", err)
+		}
+	}
+
+	return config, nil
+}

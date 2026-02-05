@@ -34,7 +34,7 @@ import (
 )
 
 // SetupRouter configures and returns the Gin router with all routes
-func SetupRouter(tierService *service.TierService) *gin.Engine {
+func SetupRouter(tierService *service.TierService, tokenRateLimitService *service.TokenRateLimitService, rateLimitService *service.RateLimitService) *gin.Engine {
 	// Ensure we're not in release mode (which disables logging)
 	// This must be called before creating the router
 	gin.SetMode(gin.DebugMode)
@@ -46,8 +46,10 @@ func SetupRouter(tierService *service.TierService) *gin.Engine {
 	// Create LLMInferenceServiceService
 	llmServiceService := service.NewLLMInferenceServiceService(tierService)
 
-	// Create handler
+	// Create handlers
 	handler := NewTierHandler(tierService, llmServiceService)
+	tokenRateLimitHandler := NewTokenRateLimitHandler(tokenRateLimitService)
+	rateLimitHandler := NewRateLimitHandler(rateLimitService)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -71,6 +73,20 @@ func SetupRouter(tierService *service.TierService) *gin.Engine {
 		v1.GET("/groups/:group/llminferenceservices", handler.GetLLMInferenceServicesByGroup)
 		v1.POST("/llminferenceservices/annotate", handler.AnnotateLLMInferenceService)
 		v1.DELETE("/llminferenceservices/annotate", handler.RemoveTierFromLLMInferenceService)
+
+		// TokenRateLimitPolicy management routes
+		v1.POST("/tokenratelimits", tokenRateLimitHandler.CreateTokenRateLimit)
+		v1.GET("/tokenratelimits", tokenRateLimitHandler.GetTokenRateLimits)
+		v1.GET("/tokenratelimits/:name", tokenRateLimitHandler.GetTokenRateLimit)
+		v1.PUT("/tokenratelimits/:name", tokenRateLimitHandler.UpdateTokenRateLimit)
+		v1.DELETE("/tokenratelimits/:name", tokenRateLimitHandler.DeleteTokenRateLimit)
+
+		// RateLimitPolicy management routes
+		v1.POST("/ratelimits", rateLimitHandler.CreateRateLimit)
+		v1.GET("/ratelimits", rateLimitHandler.GetRateLimits)
+		v1.GET("/ratelimits/:name", rateLimitHandler.GetRateLimit)
+		v1.PUT("/ratelimits/:name", rateLimitHandler.UpdateRateLimit)
+		v1.DELETE("/ratelimits/:name", rateLimitHandler.DeleteRateLimit)
 	}
 
 	// Health check endpoint

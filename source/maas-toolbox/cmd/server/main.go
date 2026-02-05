@@ -32,6 +32,8 @@ import (
 	"maas-toolbox/internal/service"
 	"maas-toolbox/internal/storage"
 	"os"
+
+	"k8s.io/client-go/dynamic"
 )
 
 // @title           Open Data Hub MaaS Toolbox API
@@ -132,11 +134,73 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize service
+	// Initialize tier service
 	tierService := service.NewTierService(tierStorage, validateGroups)
 
+	// TokenRateLimitPolicy configuration
+	tokenRateLimitNamespace := os.Getenv("TOKEN_RATELIMIT_NAMESPACE")
+	if tokenRateLimitNamespace == "" {
+		tokenRateLimitNamespace = "openshift-ingress"
+	}
+
+	tokenRateLimitPolicyName := os.Getenv("TOKEN_RATELIMIT_POLICY_NAME")
+	if tokenRateLimitPolicyName == "" {
+		tokenRateLimitPolicyName = "gateway-token-rate-limits"
+	}
+
+	log.Printf("TokenRateLimitPolicy Namespace: %s", tokenRateLimitNamespace)
+	log.Printf("TokenRateLimitPolicy Name: %s", tokenRateLimitPolicyName)
+
+	// Get Kubernetes config for dynamic client
+	config, err := storage.GetKubernetesConfig()
+	if err != nil {
+		log.Fatalf("Failed to get Kubernetes config: %v", err)
+		os.Exit(1)
+	}
+
+	// Create dynamic client for CRD operations
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("Failed to create dynamic client: %v", err)
+		os.Exit(1)
+	}
+
+	// Create token rate limit storage (uses dynamic client for CRD access)
+	tokenRateLimitStorage := storage.NewK8sTokenRateLimitStorage(
+		dynamicClient,
+		tokenRateLimitNamespace,
+		tokenRateLimitPolicyName,
+	)
+
+	// Create token rate limit service (with tier validation)
+	tokenRateLimitService := service.NewTokenRateLimitService(tokenRateLimitStorage, tierService)
+
+	// RateLimitPolicy configuration
+	rateLimitNamespace := os.Getenv("RATELIMIT_NAMESPACE")
+	if rateLimitNamespace == "" {
+		rateLimitNamespace = "openshift-ingress"
+	}
+
+	rateLimitPolicyName := os.Getenv("RATELIMIT_POLICY_NAME")
+	if rateLimitPolicyName == "" {
+		rateLimitPolicyName = "gateway-rate-limits"
+	}
+
+	log.Printf("RateLimitPolicy Namespace: %s", rateLimitNamespace)
+	log.Printf("RateLimitPolicy Name: %s", rateLimitPolicyName)
+
+	// Create rate limit storage (uses same dynamic client for CRD access)
+	rateLimitStorage := storage.NewK8sRateLimitStorage(
+		dynamicClient,
+		rateLimitNamespace,
+		rateLimitPolicyName,
+	)
+
+	// Create rate limit service (with tier validation)
+	rateLimitService := service.NewRateLimitService(rateLimitStorage, tierService)
+
 	// Setup router
-	router := api.SetupRouter(tierService)
+	router := api.SetupRouter(tierService, tokenRateLimitService, rateLimitService)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", *port)

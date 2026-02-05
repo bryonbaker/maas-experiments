@@ -45,4 +45,24 @@ var (
 	ErrTierNotFoundInAnnotation    = errors.New("tier not found in service annotation")
 	ErrUserRequired                = errors.New("username is required")
 	ErrUserNotFound                = errors.New("user not found in cluster")
+	
+	// TokenRateLimit errors
+	ErrTokenRateLimitNameRequired    = errors.New("token rate limit name is required")
+	ErrTokenRateLimitInvalid         = errors.New("token rate limit must be positive")
+	ErrTokenRateLimitWindowRequired  = errors.New("token rate limit window is required")
+	ErrTokenRateLimitWindowInvalid   = errors.New("token rate limit window must be in Kubernetes duration format (e.g., 1s, 1m, 1h)")
+	ErrTokenRateLimitTierRequired    = errors.New("token rate limit tier is required")
+	ErrTokenRateLimitAlreadyExists   = errors.New("token rate limit already exists")
+	ErrTokenRateLimitNotFound        = errors.New("token rate limit not found")
+	ErrTokenRateLimitPolicyNotFound  = errors.New("TokenRateLimitPolicy resource not found")
+	
+	// RateLimit errors
+	ErrRateLimitNameRequired    = errors.New("rate limit name is required")
+	ErrRateLimitInvalid         = errors.New("rate limit must be positive")
+	ErrRateLimitWindowRequired  = errors.New("rate limit window is required")
+	ErrRateLimitWindowInvalid   = errors.New("rate limit window must be in Kubernetes duration format (e.g., 1s, 1m, 1h)")
+	ErrRateLimitTierRequired    = errors.New("rate limit tier is required")
+	ErrRateLimitAlreadyExists   = errors.New("rate limit already exists")
+	ErrRateLimitNotFound        = errors.New("rate limit not found")
+	ErrRateLimitPolicyNotFound  = errors.New("RateLimitPolicy resource not found")
 )

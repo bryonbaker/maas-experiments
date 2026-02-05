@@ -111,4 +111,64 @@ roleRef:
   kind: ClusterRole
   name: maas-toolbox-namespace-reader
   apiGroup: rbac.authorization.k8s.io
+---
+# Role for managing TokenRateLimitPolicy in openshift-ingress namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: maas-toolbox-tokenratelimit-manager
+  namespace: openshift-ingress
+  labels:
+    app: maas-toolbox
+rules:
+- apiGroups: ["kuadrant.io"]
+  resources: ["tokenratelimitpolicies"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+---
+# RoleBinding to grant TokenRateLimitPolicy management access in openshift-ingress
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maas-toolbox-tokenratelimit-manager-binding
+  namespace: openshift-ingress
+  labels:
+    app: maas-toolbox
+subjects:
+- kind: ServiceAccount
+  name: maas-toolbox-sa
+  namespace: maas-toolbox
+roleRef:
+  kind: Role
+  name: maas-toolbox-tokenratelimit-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Role for managing RateLimitPolicy in openshift-ingress namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: maas-toolbox-ratelimit-manager
+  namespace: openshift-ingress
+  labels:
+    app: maas-toolbox
+rules:
+- apiGroups: ["kuadrant.io"]
+  resources: ["ratelimitpolicies"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+---
+# RoleBinding to grant RateLimitPolicy management access in openshift-ingress
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maas-toolbox-ratelimit-manager-binding
+  namespace: openshift-ingress
+  labels:
+    app: maas-toolbox
+subjects:
+- kind: ServiceAccount
+  name: maas-toolbox-sa
+  namespace: maas-toolbox
+roleRef:
+  kind: Role
+  name: maas-toolbox-ratelimit-manager
+  apiGroup: rbac.authorization.k8s.io
 
