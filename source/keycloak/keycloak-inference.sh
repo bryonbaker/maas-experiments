@@ -24,7 +24,12 @@ fi
 # Get a token from Key Cloak to access the OpenShift cluster
 
 export KK_JWT=$(curl -d 'client_id=maas' -d "client_secret=${CLIENT_SECRET}" -d "username=${KEYCLOAK_USER}" -d "password=${PASSWORD}" -d 'grant_type=password' 'https://keycloak.apps.ethan-sno-kk.sandbox3469.opentlc.com/realms/maas-tenants/protocol/openid-connect/token' | jq -r '.access_token')
-echo "Keycloak JWT: $KK_JWT"
+# echo "Keycloak JWT: $KK_JWT"
+
+echo "**************************************************"
+echo "Decoding Keycloak JWT"
+./jwt-decode.sh $KK_JWT
+echo "**************************************************"
 
 # Get cluster details
 CLUSTER_DOMAIN="apps.ethan-sno-kk.sandbox3469.opentlc.com"
@@ -55,8 +60,12 @@ echo $MODELS | jq .
 
 MODEL_NAME=$(echo $MODELS | jq -r '.data[0].id')
 MODEL_URL=$(echo $MODELS | jq -r '.data[0].url')
+echo "Model Name: $MODEL_NAME"
 echo "Model URL: $MODEL_URL"
 
 # Inference against the model.
-curl -sSk -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json"   -d "{\"model\": \"${MODEL_NAME}\", \"prompt\": \"Hello\", \"max_tokens\": 50}"   "${MODEL_URL}/v1/completions" | jq
+RESP=$(curl -sSk -H "Authorization: Bearer $TOKEN"   -H "Content-Type: application/json"   -d "{\"model\": \"${MODEL_NAME}\", \"prompt\": \"Hello\", \"max_tokens\": 50}"   "${MODEL_URL}/v1/completions")
+echo $RESP
+
+echo $RESP | jq .
 
