@@ -1,0 +1,4 @@
+keycloak:
+  base_url: https://keycloak.apps.ethan-sno-kk.sandbox3469.opentlc.com
+  realm: maas-tenants
+  admin_creds_file: ${HOME}/secrets/keycloak/ethan/admin-creds.yaml

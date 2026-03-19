@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tenant.display_name }} - External IDP Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .header {
+            background: rgba(255,255,255,0.95);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header h1 { font-size: 1.4em; color: #1a1a2e; }
+        .header a { color: #0f3460; text-decoration: none; font-weight: 500; }
+        .container { max-width: 700px; margin: 30px auto; padding: 0 20px; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .card h2 { color: #1a1a2e; margin-bottom: 20px; }
+        .detail-row { display: flex; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .detail-label { width: 160px; font-weight: 600; color: #555; font-size: 0.9em; flex-shrink: 0; }
+        .detail-value { flex: 1; word-break: break-all; }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .badge-draft { background: #e0e0e0; color: #555; }
+        .badge-active { background: #d4edda; color: #155724; }
+        .badge-error { background: #f8d7da; color: #721c24; }
+        .group-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #e8eaf6;
+            color: #283593;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin: 2px 4px 2px 0;
+        }
+        .error-box {
+            background: #fff3f3;
+            border: 1px solid #f8d7da;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-top: 15px;
+            color: #721c24;
+            font-size: 0.9em;
+        }
+        .actions { margin-top: 20px; display: flex; gap: 10px; }
+        .btn {
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95em;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary { background: #0f3460; color: white; }
+        .btn-primary:hover { background: #1a4a7a; }
+        .btn-secondary { background: #e0e0e0; color: #333; }
+        .btn-secondary:hover { background: #d0d0d0; }
+        .btn-activate { background: #28a745; color: white; }
+        .btn-activate:hover { background: #218838; }
+        .btn-delete { background: #dc3545; color: white; }
+        .btn-delete:hover { background: #c82333; }
+        .flash { padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; }
+        .flash-success { background: #d4edda; color: #155724; }
+        .flash-error { background: #f8d7da; color: #721c24; }
+        .redirect-url {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85em;
+            background: #f0f4f8;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #d0d8e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>External IDP Portal</h1>
+        <a href="{{ url_for('index') }}">Back to Tenant List</a>
+    </div>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
+        <div class="card">
+            <h2>{{ tenant.display_name }}</h2>
+
+            <div class="detail-row">
+                <div class="detail-label">State</div>
+                <div class="detail-value"><span class="badge badge-{{ tenant.state }}">{{ tenant.state }}</span></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Alias</div>
+                <div class="detail-value">{{ tenant.alias }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Tenant Slug</div>
+                <div class="detail-value">{{ slug }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Redirect URI</div>
+                <div class="detail-value">
+                    <span class="redirect-url">{{ config.base_url }}/realms/{{ config.realm }}/broker/{{ tenant.alias }}/endpoint</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Authorisation URL</div>
+                <div class="detail-value">{{ tenant.auth_url }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Token URL</div>
+                <div class="detail-value">{{ tenant.token_url }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Client ID</div>
+                <div class="detail-value">{{ tenant.client_id }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Groups</div>
+                <div class="detail-value">
+                    {% for g in group_list %}
+                    <span class="group-badge">{{ g }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Created</div>
+                <div class="detail-value">{{ tenant.created_at }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Updated</div>
+                <div class="detail-value">{{ tenant.updated_at }}</div>
+            </div>
+
+            {% if tenant.state == 'error' and tenant.error_message %}
+            <div class="error-box">
+                <strong>Error:</strong> {{ tenant.error_message }}
+            </div>
+            {% endif %}
+
+            <div class="actions">
+                <a href="{{ url_for('tenant_edit', tenant_id=tenant.id) }}" class="btn btn-primary">Edit</a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+                <form method="POST" action="{{ url_for('tenant_activate', tenant_id=tenant.id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-activate">Activate</button>
+                </form>
+                <form method="POST" action="{{ url_for('tenant_delete', tenant_id=tenant.id) }}" style="display:inline;"
+                      onsubmit="return confirm('Are you sure you want to delete tenant \'{{ tenant.alias }}\'? This will remove the IdP and groups from Keycloak.');">
+                    <button type="submit" class="btn btn-delete">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -35,8 +35,8 @@ echo "**************************************************"
 CLUSTER_DOMAIN="apps.ethan-sno-kk.sandbox3469.opentlc.com"
 echo "Cluster domain: $CLUSTER_DOMAIN"
 
-# http:// until the bug is pushed to main branch
-HOST="http://maas.${CLUSTER_DOMAIN}"
+HOST="http://maas.${CLUSTER_DOMAIN}"      # Work around for cert issue
+# HOST="https://maas.${CLUSTER_DOMAIN}"
 echo "MaaS Host url: $HOST"
 
 # Get a MaaS Token from the maas-api, using your Key Cloak identity
